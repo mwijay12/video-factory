@@ -1,0 +1,33 @@
+[
+  {
+    "id": "q_1780519541",
+    "video_path": "assets\\stock\\uploaded_queue\\queue_1780519541.mp4",
+    "title": "auto_gospel_20260603_233616.mp4",
+    "description": "",
+    "thumbnail_path": null,
+    "platforms": [
+      "youtube"
+    ],
+    "scheduled_time": "2026-06-04T08:00",
+    "status": "failed",
+    "publish_log": "Publishing started...\n[YOUTUBE] Uploading...\n[YOUTUBE] ❌ FAILED (exit=1).\nLast log:\n  ❌ [ERROR] YouTube upload failed: Page.goto: Timeout 60000ms exceeded.\nCall log:\n  - navigating to \"https://studio.youtube.com/\", waiting until \"load\"\n\n  Debug screenshot saved: C:\\Users\\MWIJAY TECH\\VideoFactory\\output\\debug_screenshot_yt.png\n",
+    "created_at": "2026-06-03T23:45:41.688406",
+    "error_message": "Failed on all platforms: ['youtube']"
+  },
+  {
+    "id": "q_1782773663",
+    "video_path": "assets\\stock\\uploaded_queue\\queue_1782773663.mp4",
+    "title": "Web Gospel 20260630 012843",
+    "description": "",
+    "thumbnail_path": null,
+    "platforms": [
+      "youtube"
+    ],
+    "scheduled_time": "2026-06-30T08:00",
+    "status": "publishing",
+    "publish_log": "Publishing started...\n",
+    "created_at": "2026-06-30T01:54:23.581363"
+  }
+]01:54:23.581363"
+  }
+]

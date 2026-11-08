@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoFactory — AI Video Studio | Piano Sifa</title>
+    <!-- SEO Meta -->
+    <meta name="description" content="VideoFactory: AI-powered Swahili & English short video generation for gospel, motivational, and praise content. Built for Piano Sifa.">
+    <meta name="theme-color" content="#0EA5E9">
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+    <link rel="apple-touch-icon" href="/favicon-192.png">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Puter JS SDK (async — fail gracefully if unavailable) -->
+    <script>window.puter = window.puter || {}; window.puter.quiet = true;</script>
+    <script async src="https://js.puter.com/v2/"
+            onerror="console.warn('Puter SDK failed to load — TTS will use backend instead')"
+            onload="try{if(window.puter) puter.quiet=true;}catch(e){}"></script>
+    <!-- GSAP Animation Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Mobile Navigation Toggle -->
+        <button class="mobile-nav-toggle" onclick="toggleSidebar()">
+            <i data-lucide="menu"></i>
+        </button>
+
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar" id="app-sidebar">
+            <div class="logo-section">
+                <div style="display: flex; align-items: center; gap: 0.85rem;">
+                    <div class="logo-icon">
+                        <i data-lucide="video"></i>
+                    </div>
+                    <div class="logo-title">VideoFactory</div>
+                </div>
+                <button class="sidebar-collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse Sidebar (Ctrl+B)">
+                    <i data-lucide="panel-left-close" id="collapse-icon"></i>
+                </button>
+            </div>
+            <ul class="nav-list">
+                <li class="nav-item active" onclick="switchTab('creator')" data-tooltip="Script Creator">
+                    <i data-lucide="edit-3"></i>
+                    <span>Script Creator</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('bulk')" data-tooltip="Bulk Generator">
+                    <i data-lucide="layers"></i>
+                    <span>Bulk Generator</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('trends')" data-tooltip="Trending Finder">
+                    <i data-lucide="trending-up"></i>
+                    <span>Trending Finder</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('downloader')" data-tooltip="Downloader Hub">
+                    <i data-lucide="download-cloud"></i>
+                    <span>Downloader Hub</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('composer')" data-tooltip="Composer Timeline">
+                    <i data-lucide="sliders"></i>
+                    <span>Composer Timeline</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('lyrics-mode')" data-tooltip="Song to Reel">
+                    <i data-lucide="music-3"></i>
+                    <span>Song to Reel</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('tts')" data-tooltip="TTS Explorer">
+                    <i data-lucide="volume-2"></i>
+                    <span>TTS Explorer</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('vlab')" data-tooltip="Voice Lab">
+                    <i data-lucide="mic"></i>
+                    <span>Voice Lab</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('publisher')" data-tooltip="Publisher Pipeline">
+                    <i data-lucide="send"></i>
+                    <span>Publisher Pipeline</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('scheduler')" data-tooltip="Scheduler Queue">
+                    <i data-lucide="calendar"></i>
+                    <span>Scheduler Queue</span>
+                </li>
+                <li class="nav-item" onclick="switchTab('settings')" data-tooltip="Settings Control">
+                    <i data-lucide="settings"></i>
+                    <span>Settings Control</span>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Workspace -->
+        <main class="workspace" id="app-workspace">
+            <header>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <button class="topbar-sidebar-toggle" onclick="toggleSidebarCollapse()" title="Toggle Sidebar Navigation">
+                        <i data-lucide="panel-left"></i>
+                    </button>
+                    <h1 id="tab-title">Script Creator</h1>
+                </div>
+                <div id="status-badge" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
+                    <div style="width: 8px; height: 8px; border-radius: 50%; background-color: var(--accent-success); box-shadow: 0 0 10px var(--accent-success);"></div>
+                    Connected to Local Server
+                </div>
+            </header>
+
+            <!-- TABS WORKSPACE -->
+            
+            <!-- 1. SCRIPT CREATOR -->
+            <div id="tab-creator" class="tab-section active">
+                <div class="glass-card">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Generate fresh Script with AI</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Niche Category</label>
+                            <select id="script-niche" onchange="onScriptNicheChanged()">
+                                <option value="gospel">Gospel Reels</option>
+                                <option value="prayer">Prayer Reels</option>
+                                <option value="praise">Praise & Worship</option>
+                                <option value="motivational">Motivational</option>
+                                <option value="swahili">Kiswahili</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Voice Language</label>
+                            <select id="script-lang" onchange="updateVoiceOptions()">
+                                <option value="english">English</option>
+                                <option value="swahili">Kiswahili</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Voice Speaker</label>
+                            <select id="script-voice">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>Custom Topic / Subject (Optional)</label>
+                        <input type="text" id="script-topic" placeholder="e.g. Why God allowed Joseph to suffer, or speak about Samson...">
+                    </div>
+                    <div style="display: flex; gap: 2.5rem; margin-top: 1.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.5rem;">
+                        <label class="toggle-container">
+                            <input type="checkbox" id="script-viral" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                            <span>Include Viral Hook intro</span>
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <button class="btn" id="creator-submit-btn" onclick="generateAIScript()">
+                            <i data-lucide="sparkles"></i>
+                            Generate Script
+                        </button>
+                        <button class="btn btn-secondary" id="creator-templates-btn" onclick="loadTemplateScripts()">
+                            Load Local Templates
+                        </button>
+                    </div>
+
+                    <!-- Paste & Auto-Organize External Script (ChatGPT, Claude, Notes) -->
+                    <div style="margin-top: 2rem; border-top: 1px dashed var(--border-subtle); padding-top: 1.5rem;">
+                        <h4 style="font-family: var(--font-heading); font-size: 1.1rem; font-weight: 700; color: var(--secondary); display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                            <i data-lucide="clipboard-paste" style="width: 18px; height: 18px;"></i>
+                            Paste External Script (ChatGPT / Claude / Notes)
+                        </h4>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            Paste raw text copied from ChatGPT, Claude, or WhatsApp. VideoFactory will automatically clean formatting, remove markdown noise (*, #, stage notes), auto-generate English B-roll search terms, and structure it for TTS.
+                        </p>
+                        <div class="form-group">
+                            <textarea id="raw-pasted-script" rows="4" placeholder="Paste your script text here..." style="width: 100%; padding: 0.85rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--text-main); font-family: inherit; font-size: 0.95rem; resize: vertical;"></textarea>
+                        </div>
+                        <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" onclick="autoOrganizeExternalScript()">
+                                <i data-lucide="wand-2"></i>
+                                Format External Script
+                            </button>
+                            <button class="btn" onclick="autoOrganizeAndSendToComposer()">
+                                <i data-lucide="send"></i>
+                                Format & Send Directly to Composer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card" id="editor-card" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Interactive Script Lines</h3>
+                        <span id="script-model-badge" style="font-size: 0.75rem; background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(14, 165, 233, 0.30); padding: 0.25rem 0.75rem; border-radius: 99px; color: #7dd3fc; font-weight: 600;">AI Generated</span>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label>Script Title</label>
+                        <input type="text" id="script-title-val">
+                    </div>
+                    <div class="form-group">
+                        <label>Hook Line (First 3 seconds)</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="text" id="script-hook-val" style="border-color: rgba(14, 165, 233, 0.40); font-weight: 600;">
+                            <button class="btn btn-secondary btn-circle" onclick="previewLine('script-hook-val')">
+                               <i data-lucide="play" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="script-lines-list" id="script-lines-container">
+                        <!-- Populated dynamically -->
+                    </div>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label>Call to Action Line (Ends reel)</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="text" id="script-cta-val" style="border-color: rgba(6, 182, 212, 0.3); font-weight: 600;">
+                            <button class="btn btn-secondary btn-circle" onclick="previewLine('script-cta-val')">
+                                <i data-lucide="play" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                        <button class="btn" onclick="goToComposer()">
+                            Proceed to Composer
+                            <i data-lucide="arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 2. BULK GENERATOR -->
+            <div id="tab-bulk" class="tab-section">
+                <div style="display: flex; gap: 2rem; align-items: flex-start; flex-wrap: wrap;">
+                    
+                    <!-- Left: Parameters Form -->
+                    <div class="glass-card" style="flex: 2; min-width: 320px;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Bulk Video Factory Parameters</h3>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Niche Category</label>
+                                <select id="bulk-niche" onchange="onBulkNicheChanged()">
+                                    <option value="gospel">Gospel Reels</option>
+                                    <option value="prayer">Prayer Reels</option>
+                                    <option value="praise">Praise & Worship</option>
+                                    <option value="motivational">Motivational</option>
+                                    <option value="swahili">Kiswahili</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Language</label>
+                                <select id="bulk-lang" onchange="updateVoiceOptions()">
+                                    <option value="english">English</option>
+                                    <option value="swahili">Kiswahili</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Number of Videos (Batch Size)</label>
+                                <select id="bulk-batch-size">
+                                    <option value="2">2 Videos</option>
+                                    <option value="3">3 Videos</option>
+                                    <option value="5" selected>5 Videos</option>
+                                    <option value="10">10 Videos</option>
+                                    <option value="15">15 Videos</option>
+                                    <option value="20">20 Videos</option>
+                                    <option value="30">30 Videos</option>
+                                    <option value="50">50 Videos</option>
+                                    <option value="100">100 Videos</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Mood Color Grade</label>
+                                <select id="bulk-mood">
+                                    <option value="default" selected>Default (Normal colors)</option>
+                                    <option value="peaceful">Peaceful (Warm blue grade)</option>
+                                    <option value="powerful">Powerful (High contrast gold)</option>
+                                    <option value="hopeful">Hopeful (Uplifting sunny)</option>
+                                    <option value="emotional">Emotional (Deep purple tint)</option>
+                                    <option value="holy">Holy (Divine gold overlay)</option>
+                                    <option value="cinematic">Cinematic (Muted retro colors)</option>
+                                    <option value="whisper">Whisper (Bedtime ambient)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Background Music Beat</label>
+                                <select id="bulk-music">
+                                    <option value="auto_smart" selected>🎵 Auto-Select (Smart Niche Rotation)</option>
+                                    <option value="">None (Voice only)</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                                <div class="music-upload-row" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-subtle); border-radius: 6px;">
+                                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                        <i data-lucide="music-4" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted);">Use custom audio (.mp3, .wav)</span>
+                                    </div>
+                                    <input type="file" id="bulk-music-upload" accept="audio/mp3,audio/wav,audio/m4a" style="display: none;" onchange="uploadCustomMusic('bulk-music-upload', 'bulk-music', 'bulk-music-upload-status')">
+                                    <button class="btn btn-secondary" onclick="document.getElementById('bulk-music-upload').click()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; height: auto; border-radius: 4px;">
+                                        <span id="bulk-music-upload-status">Upload Song</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Voice Speaker</label>
+                                <select id="bulk-voice">
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label>Bulk Topic Guidelines / Theme (Optional)</label>
+                            <input type="text" id="bulk-topic" placeholder="e.g. Christian courage, faith in tough times, bible miracles...">
+                        </div>
+
+                        <div style="display: flex; gap: 2.5rem; margin-top: 1.5rem; flex-wrap: wrap;">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="bulk-viral" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                <span>Include Viral Hook intro</span>
+                            </label>
+                            <label class="toggle-container" style="color: var(--secondary); font-weight: 600;">
+                                <input type="checkbox" id="bulk-music-only" style="width: 18px; height: 18px; accent-color: var(--secondary);">
+                                <span>Compile in Music-Only Mode (No voice/script)</span>
+                            </label>
+                        </div>
+
+                        <button class="btn" style="width: 100%; font-size: 1.15rem; padding: 1.25rem; margin-top: 2rem;" onclick="startBulkVideoFactory()">
+                            <i data-lucide="cpu"></i>
+                            Launch
+                        </button>
+                    </div>
+
+                    <!-- Right: Console Progress & Results -->
+                    <div class="glass-card" id="bulk-factory-card" style="flex: 3; min-width: 380px;">
+                        <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--secondary);">
+                            <i data-lucide="cpu" class="animate-pulse" style="color: var(--secondary);"></i>
+                            Bulk Video Factory Process
+                        </h3>
+                        <div style="margin-bottom: 1.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <span id="bulk-overall-status" style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Progress: Waiting to start...</span>
+                                <span id="bulk-overall-percent" style="font-size: 0.9rem; font-weight: 600; color: var(--secondary);">0%</span>
+                            </div>
+                            <div class="progress-container" style="height: 12px;">
+                                <div class="progress-bar" id="bulk-overall-progress" style="width: 0%;"></div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <!-- Task list -->
+                            <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 1.25rem; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;" id="bulk-tasks-container">
+                                <div style="text-align: center; color: var(--text-muted); padding: 2rem;">No active batch tasks. Set parameters and launch.</div>
+                            </div>
+                            
+                            <!-- Compiler output log -->
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Active Compiler Output Log</div>
+                                <div class="console-box" id="bulk-active-console" style="height: 200px;">Console ready.</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Finished Grid -->
+                        <div id="bulk-finished-gallery" style="margin-top: 2rem; display: none; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+                            <h4 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent-success); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="check-circle" style="color: var(--accent-success);"></i>
+                                Batch Video Output Gallery
+                            </h4>
+                            <div class="media-grid" id="bulk-gallery-container" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem;">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            
+            
+
+            <!-- 2. DOWNLOADER HUB -->
+            <div id="tab-downloader" class="tab-section">
+                <div class="glass-card">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Download Stock Photos / Videos</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Download Engine</label>
+                            <select id="dl-engine" onchange="updateDownloadOptions()">
+                                <option value="pinterest">Pinterest Downloader (Pidgets Widget API)</option>
+                                <option value="pexels">Pexels Stock Downloader (API Key)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Target Folder</label>
+                            <select id="dl-folder">
+                                <option value="pinterest/gospel">pinterest/gospel</option>
+                                <option value="pinterest/jesus">pinterest/jesus</option>
+                                <option value="pinterest/backgrounds">pinterest/backgrounds</option>
+                                <option value="pinterest/nature_pics">pinterest/nature_pics</option>
+                                <option value="pinterest/people">pinterest/people</option>
+                                <option value="pinterest/quotes">pinterest/quotes</option>
+                                <option value="pinterest/characters/samson">pinterest/characters/samson</option>
+                                <option value="pinterest/characters/david">pinterest/characters/david</option>
+                                <option value="pinterest/characters/mary">pinterest/characters/mary</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="dl-type-group" style="display: none;">
+                            <label>Media Type</label>
+                            <select id="dl-type">
+                                <option value="video">Vertical Videos</option>
+                                <option value="photo">Portrait Photos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 1.5rem;">
+                        <label id="dl-query-label">Pinterest Board URL or Niche Target</label>
+                        <input type="text" id="dl-source" placeholder="e.g. gospel, nature, or paste a board URL...">
+                    </div>
+                    <div class="form-grid" style="margin-top: 1.5rem;">
+                        <div class="form-group">
+                            <label>Download Limit (Max items)</label>
+                            <input type="text" id="dl-limit" value="10">
+                        </div>
+                    </div>
+                    <div style="margin-top: 2rem;">
+                        <button class="btn" onclick="startDownload()">
+                            <i data-lucide="download-cloud"></i>
+                            Start Background Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. COMPOSER TIMELINE -->
+            <div id="tab-composer" class="tab-section">
+                <div class="form-grid">
+                    <div class="glass-card" style="flex: 2;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Composition Settings</h3>
+                        <div class="form-grid" style="margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Video Mood Color Grade</label>
+                                <select id="render-mood">
+                                    <option value="teal_orange" selected>🎬 Hollywood Teal & Orange</option>
+                                    <option value="gospel_gold">☀️ Gospel Gold (Warm Glory)</option>
+                                    <option value="cyberpunk">⚡ Cyberpunk Neon</option>
+                                    <option value="vintage">📽️ Vintage Film</option>
+                                    <option value="peaceful">Peaceful (Warm blue grade)</option>
+                                    <option value="powerful">Powerful (High contrast gold)</option>
+                                    <option value="hopeful">Hopeful (Uplifting sunny)</option>
+                                    <option value="emotional">Emotional (Deep purple tint)</option>
+                                    <option value="holy">Holy (Divine gold overlay)</option>
+                                    <option value="cinematic">Cinematic (Muted retro colors)</option>
+                                    <option value="default">Default (Normal colors)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Aspect Ratio</label>
+                                <select id="render-aspect-ratio">
+                                    <option value="9:16" selected>📱 Vertical 9:16 (TikTok/Reels)</option>
+                                    <option value="16:9">📺 Horizontal 16:9 (YouTube)</option>
+                                    <option value="1:1">🔲 Square 1:1 (Instagram)</option>
+                                    <option value="4:5">📸 Portrait 4:5 (Insta Feed)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Caption Typography Animation</label>
+                                <select id="render-caption-style">
+                                    <option value="typing" selected>✍️ Typing Effect (Cursor Reveal)</option>
+                                    <option value="bounce">🎤 Word Bounce Karaoke (Glowing Pulse)</option>
+                                    <option value="classic">💬 Classic Subtitles (Fade-in Block)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Scene Transition Style</label>
+                                <select id="render-transition-style">
+                                    <option value="whip_zoom" selected>🚀 Whip Zoom Burst</option>
+                                    <option value="slide_left">➡️ Slide Left Motion</option>
+                                    <option value="dip_black">🎬 Dip to Black Flash</option>
+                                    <option value="blur_dissolve">🌫️ Blur Dissolve</option>
+                                    <option value="crossfade">✨ Classic Crossfade</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-bottom: 1.5rem;">
+                            <div class="form-group">
+                                <label>Anti-Flagging Voice Pitch Shift</label>
+                                <select id="render-voice-pitch">
+                                    <option value="1.5" selected>🎙️ +1.5 Semitones (Warm Unique Voice)</option>
+                                    <option value="2.5">🎙️ +2.5 Semitones (Higher Clarity)</option>
+                                    <option value="-1.5">🎙️ -1.5 Semitones (Deeper Pitch)</option>
+                                    <option value="0.0">🎙️ 0.0 Semitones (Original Voice)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Studio Voice EQ Filter</label>
+                                <select id="render-voice-eq">
+                                    <option value="warm_studio" selected>🎧 Warm Studio Mic</option>
+                                    <option value="podcast_mic">🎙️ Podcast Broadcast EQ</option>
+                                    <option value="radio_host">📻 Radio Host Tone</option>
+                                    <option value="natural">🍃 Natural Clarity</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>Background Music Beat</label>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <select id="render-music" onchange="onMusicSelected()" style="flex-grow: 1;">
+                                    <option value="auto_smart" selected>🎵 Auto-Select (Smart Niche Rotation)</option>
+                                    <option value="">None (Voice only)</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                                <button id="music-preview-btn" class="btn btn-secondary btn-circle" onclick="toggleMusicPreview()" title="Preview selected track">
+                                    <i data-lucide="play" style="width: 18px; height: 18px;"></i>
+                                </button>
+                            </div>
+                            <div class="music-upload-row" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-subtle); border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <i data-lucide="music-4" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Use custom audio (.mp3, .wav)</span>
+                                </div>
+                                <input type="file" id="render-music-upload" accept="audio/mp3,audio/wav,audio/m4a" style="display: none;" onchange="uploadCustomMusic('render-music-upload', 'render-music', 'render-music-upload-status')">
+                                <button class="btn btn-secondary" onclick="document.getElementById('render-music-upload').click()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; height: auto; border-radius: 4px;">
+                                    <span id="render-music-upload-status">Upload Song</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label class="toggle-container" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="render-music-only" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                <span>Compile in Music-Only Mode (Skip Voice/Subtitles)</span>
+                            </label>
+                        </div>
+                        <div style="margin-top: 2rem;">
+                            <button class="btn btn-block" style="width: 100%; font-size: 1.1rem; padding: 1.25rem;" onclick="startComposing()">
+                                <i data-lucide="play-circle"></i>
+                                Compile
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rendering console -->
+                    <div class="glass-card" style="flex: 3; display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Compiler Output Console</h3>
+                            <!-- Live pulse indicator -->
+                            <div id="render-live-indicator" style="display: none; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--accent-success); font-weight: 600;">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-success); display: inline-block; animation: pulse-dot 1.2s ease-in-out infinite;"></span>
+                                LIVE
+                            </div>
+                        </div>
+
+                        <!-- Step label row -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-height: 1.8rem;">
+                            <span id="render-step-label" style="font-size: 0.92rem; font-weight: 600; color: var(--text-normal); transition: all 0.4s ease; letter-spacing: 0.01em;">Status: Idle</span>
+                        </div>
+
+                        <!-- Progress bar with percentage counter -->
+                        <div class="progress-block" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span id="render-status-txt" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">IDLE</span>
+                                <span id="render-pct-label" style="font-size: 0.9rem; font-weight: 700; color: var(--primary); font-family: var(--font-code);">0%</span>
+                            </div>
+                            <div class="progress-track" style="height: 10px; width: 100%; background: rgba(255, 255, 255, 0.06); border-radius: 99px; overflow: hidden; position: relative;">
+                                <div class="progress-bar" id="render-progress" style="height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, #ff0000, #a855f7); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                            </div>
+                        </div>
+
+                        <!-- Live Telemetry HUD -->
+                        <div id="render-telemetry-hud" style="display: none; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.5rem 0.85rem; font-size: 0.8rem; font-family: var(--font-code); color: var(--text-muted); margin-bottom: 0.5rem;">
+                            <span id="render-hud-frames"><i data-lucide="layers" style="width: 13px; height: 13px; vertical-align: middle; margin-right: 4px;"></i>Frame: <strong id="hud-frame-val" style="color: var(--text-main);">--/--</strong></span>
+                            <span id="render-hud-fps"><i data-lucide="zap" style="width: 13px; height: 13px; vertical-align: middle; margin-right: 4px;"></i>Speed: <strong id="hud-fps-val" style="color: var(--accent-success);">-- fps</strong></span>
+                            <span id="render-hud-eta"><i data-lucide="clock" style="width: 13px; height: 13px; vertical-align: middle; margin-right: 4px;"></i>ETA: <strong id="hud-eta-val" style="color: var(--secondary);">--</strong></span>
+                        </div>
+
+                        <!-- Pipeline step chips -->
+                        <div id="render-step-chips" style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                            <span class="render-chip" data-min="5"  data-max="14">🚀 Start</span>
+                            <span class="render-chip" data-min="15" data-max="49">🎙 Voice</span>
+                            <span class="render-chip" data-min="50" data-max="68">🎬 Media</span>
+                            <span class="render-chip" data-min="69" data-max="79">🔤 Subtitles</span>
+                            <span class="render-chip" data-min="80" data-max="98">🎞 Encode</span>
+                            <span class="render-chip" data-min="99" data-max="99">💾 Finalize</span>
+                            <span class="render-chip" data-min="100" data-max="100">✅ Ready</span>
+                        </div>
+
+                        <div class="console-box" id="render-console">Ready to compile. Select parameters and click Compile.</div>
+                    </div>
+
+
+                    <!-- Smartphone Reel Mockup & Action Toolbar -->
+                    <div class="glass-card" id="phone-preview-card" style="flex: 2; display: none; flex-direction: column; align-items: center; gap: 1.25rem; min-width: 280px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Reel Preview</h3>
+                            <span class="badge badge-success" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; border-radius: 99px; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3);">READY</span>
+                        </div>
+                        <div class="phone-mockup">
+                            <div class="phone-notch"></div>
+                            <video id="rendered-video-player" controls loop playsinline class="phone-screen"></video>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; width: 100%;">
+                            <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="downloadRenderedVideo()">
+                                <i data-lucide="download"></i>
+                                Download MP4
+                            </button>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-secondary" style="flex: 1; font-size: 0.85rem; padding: 0.6rem; justify-content: center;" onclick="copyRenderedVideoPath()" title="Copy file path">
+                                    <i data-lucide="copy"></i> Copy Path
+                                </button>
+                                <button class="btn btn-secondary" style="flex: 1; font-size: 0.85rem; padding: 0.6rem; justify-content: center;" onclick="openFullscreenPreview()" title="Open Fullscreen Video">
+                                    <i data-lucide="maximize-2"></i> Maximize
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- 5. PUBLISHER PIPELINE -->
+            <div id="tab-publisher" class="tab-section">
+                <div class="form-grid">
+                    <!-- Left: Control panel -->
+                    <div class="glass-card" style="flex: 2;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Publisher Channels</h3>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;" id="platforms-status-list">
+                            <div class="platform-badge inactive" id="plat-youtube">
+                                <i data-lucide="video"></i>
+                                <span>YouTube Shorts: Checking...</span>
+                            </div>
+                            <div class="platform-badge inactive" id="plat-tiktok">
+                                <i data-lucide="music-2"></i>
+                                <span>TikTok: Checking...</span>
+                            </div>
+                            <div class="platform-badge inactive" id="plat-instagram">
+                                <i data-lucide="camera"></i>
+                                <span>Instagram Reels: Checking...</span>
+                            </div>
+                        </div>
+
+                        <h3 style="font-family: var(--font-heading); margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1.15rem; font-weight: 700; color: var(--secondary);">Session Health Checker</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.4;">
+                            Click to open a visible Google Chrome window for the platform. Verify your login state, log in if needed, and close the window to save your session.
+                        </p>
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 2rem;">
+                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.75rem; padding: 0.6rem 0.4rem;" onclick="checkLoginSession('youtube')">🔴 YouTube</button>
+                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.75rem; padding: 0.6rem 0.4rem;" onclick="checkLoginSession('tiktok')">🎵 TikTok</button>
+                            <button class="btn btn-secondary" style="flex: 1; font-size: 0.75rem; padding: 0.6rem 0.4rem;" onclick="checkLoginSession('instagram')">📸 Instagram</button>
+                        </div>
+
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.35rem; font-weight: 700;">Trigger Pipeline Run</h3>
+                        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.5;">
+                            This runs the complete daily scheduler pipeline: fetches dynamic trending news or niche topics, auto-generates Swahili/English scripts, downloads semantic high-quality stock b-rolls, synthesizes vocal narration, composites elements with safe kinetic layouts, and publishes to all active channels.
+                        </p>
+
+                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="pipeline-force" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                <span>Force run (override daily limit)</span>
+                            </label>
+                        </div>
+
+                        <button class="btn" style="width: 100%; font-size: 1.1rem; padding: 1.25rem;" onclick="startPipeline()">
+                            <i data-lucide="send"></i>
+                            RUN DAILY AUTO-PUBLISHER
+                        </button>
+                    </div>
+
+                    <!-- Right: Pipeline Output Console -->
+                    <div class="glass-card" style="flex: 3; display: flex; flex-direction: column; gap: 1rem;">
+                        <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Pipeline Automation Console</h3>
+                        <div id="pipeline-status-txt" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Status: Idle</div>
+                        <div class="progress-container">
+                            <div class="progress-bar" id="pipeline-progress"></div>
+                        </div>
+                        <div class="console-box" id="pipeline-console">Ready. Click run to launch. If browser logins are required, headful login windows will appear automatically on the desktop.</div>
+                    </div>
+                </div>
+
+                <!-- Bottom: Publication History Logs -->
+                <div class="glass-card" style="margin-top: 2rem;">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Publication Logs History</h3>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Rendered Video</th>
+                                    <th>Published Channels</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pub-history-body">
+                                <tr>
+                                    <td colspan="4" style="padding: 2rem; text-align: center; color: var(--text-muted);">Loading logs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. SCHEDULER QUEUE -->
+            <div id="tab-scheduler" class="tab-section">
+                <div style="display: flex; gap: 2rem; align-items: flex-start;">
+                    <!-- Left: Upload & Schedule Form -->
+                    <div class="glass-card" style="flex: 2;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Schedule Custom Video Upload</h3>
+                        
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                            <button id="btn-mode-rendered" class="btn" style="flex: 1; padding: 0.75rem;" onclick="setQueueVideoMode('rendered')">Select Rendered Video</button>
+                            <button id="btn-mode-local" class="btn btn-secondary" style="flex: 1; padding: 0.75rem;" onclick="setQueueVideoMode('local')">Upload Local Video</button>
+                        </div>
+
+                        <!-- Rendered Video Selector -->
+                        <div class="form-group" id="group-video-rendered" style="margin-bottom: 1.5rem;">
+                            <label>Select Rendered Video from Output</label>
+                            <select id="queue-rendered-video" onchange="onRenderedVideoSelected()">
+                                <option value="">-- Loading Rendered Videos --</option>
+                            </select>
+                            <span id="rendered-video-info" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;"></span>
+                        </div>
+
+                        <!-- Local Video File Uploader -->
+                        <div class="form-group" id="group-video-local" style="margin-bottom: 1.5rem; display: none;">
+                            <label>Select Video File (Vertical MP4)</label>
+                            <input type="file" id="queue-video-file" accept="video/mp4,video/quicktime,video/x-matroska" style="display: none;" onchange="onQueueVideoSelected()">
+                            <div class="file-drop-area" id="queue-video-drop" onclick="document.getElementById('queue-video-file').click()">
+                                <i data-lucide="video" style="width: 32px; height: 32px; color: var(--primary); margin-bottom: 0.5rem;"></i>
+                                <span id="queue-video-label" style="font-size: 0.9rem; font-weight: 600; color: var(--text-main);">Click or Drag to Select Video File</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">Max 100MB short form video clip</span>
+                            </div>
+                        </div>
+
+                        <!-- Video Preview Box -->
+                        <div class="form-group" id="group-video-preview" style="margin-bottom: 1.5rem; display: none; align-items: center;">
+                            <label style="align-self: flex-start;">Video Preview</label>
+                            <div class="phone-mockup" style="width: 180px; height: 320px; border-width: 6px; border-radius: 20px; margin-top: 0.5rem; flex-shrink: 0;">
+                                <div class="phone-notch" style="width: 60px; height: 10px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div>
+                                <video id="queue-video-preview-player" class="phone-screen" controls loop playsinline></video>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>Select Custom Thumbnail (Optional, YouTube only)</label>
+                            <input type="file" id="queue-thumb-file" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="onQueueThumbSelected()">
+                            <div class="file-drop-area" id="queue-thumb-drop" onclick="document.getElementById('queue-thumb-file').click()" style="padding: 1rem 1.5rem;">
+                                <i data-lucide="image" style="width: 24px; height: 24px; color: var(--secondary); margin-bottom: 0.25rem;"></i>
+                                <span id="queue-thumb-label" style="font-size: 0.85rem; font-weight: 600; color: var(--text-main);">Select custom thumbnail image</span>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Niche Category</label>
+                                <select id="queue-niche">
+                                    <option value="gospel">Gospel Reels</option>
+                                    <option value="prayer">Prayer Reels</option>
+                                    <option value="praise">Praise & Worship</option>
+                                    <option value="motivational">Motivational</option>
+                                    <option value="swahili">Kiswahili</option>
+                                    <option value="general">General Niche</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Video Title</label>
+                                <input type="text" id="queue-title" placeholder="e.g. My Custom Testimony">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label>Description / Caption Text</label>
+                            <textarea id="queue-description" rows="4" style="width: 100%; padding: 0.75rem 1rem; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); color: #fff; resize: vertical;" placeholder="Type video description. AI can polish it next..."></textarea>
+                        </div>
+
+                        <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+                            <button class="btn btn-secondary" id="queue-perfect-btn" onclick="perfectDescriptionAI()">
+                                <i data-lucide="sparkles"></i>
+                                Perfect Description with AI
+                            </button>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Scheduled Posting Time</label>
+                                <input type="datetime-local" id="queue-datetime" style="color-scheme: dark;">
+                                <label class="toggle-container" style="cursor: pointer; margin-top: 0.5rem; font-size: 0.8rem;">
+                                    <input type="checkbox" id="queue-random-offset" style="width: 15px; height: 15px; accent-color: var(--primary);">
+                                    <span>Add Random Delay (0-90 mins) for natural posting</span>
+                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.5rem;">
+                                    <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Peak Posting Times:</span>
+                                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem;">
+                                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.4rem;" onclick="setQueueTimePreset('morning')">🌅 Morning (8:00 AM)</button>
+                                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.4rem;" onclick="setQueueTimePreset('noon')">☀️ Noon (12:30 PM)</button>
+                                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.4rem;" onclick="setQueueTimePreset('afternoon')">🌇 Afternoon (4:30 PM)</button>
+                                        <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 0.4rem;" onclick="setQueueTimePreset('evening')">🌃 Evening (8:00 PM)</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Target Platforms</label>
+                                <div style="display: flex; gap: 1rem; align-items: center; height: 100%;">
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="queue-plat-youtube" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>YouTube</span>
+                                    </label>
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="queue-plat-tiktok" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>TikTok</span>
+                                    </label>
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="queue-plat-instagram" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Instagram</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn" style="width: 100%; font-size: 1.1rem; padding: 1.25rem; margin-top: 2rem;" onclick="scheduleQueueVideo()">
+                            <i data-lucide="calendar"></i>
+                            SCHEDULE VIDEO PUBLISHING
+                        </button>
+                    </div>
+
+                    <!-- Right: Active Queue & Statuses -->
+                    <div class="glass-card" style="flex: 3; display: flex; flex-direction: column; gap: 1.5rem; max-height: 800px; overflow-y: auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Scheduled Posting Queue</h3>
+                            <button class="btn btn-secondary btn-circle" onclick="loadUploadQueueList()" title="Refresh Queue">
+                                <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="queue-items-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Populated dynamically -->
+                            <div style="text-align: center; color: var(--text-muted); padding: 3rem 0;">
+                                <i data-lucide="calendar-days" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <p>No scheduled videos in queue.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. TRENDING FINDER -->
+            <div id="tab-trends" class="tab-section">
+                <!-- API Sources Info Modal -->
+                <div id="api-sources-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+                    <div class="glass-card" style="max-width:680px; width:90%; max-height:80vh; overflow-y:auto; position:relative;">
+                        <button onclick="document.getElementById('api-sources-modal').style.display='none'" style="position:absolute;top:1rem;right:1rem;background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;">✕</button>
+                        <h3 style="font-family:var(--font-heading);font-size:1.3rem;font-weight:700;margin-bottom:1.5rem;">📡 Trending Sources — Free & Paid</h3>
+
+                        <h4 style="color:var(--accent-success);margin-bottom:0.75rem;font-size:1rem;">✅ FREE Sources (Already Active — No API Key)</h4>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1.5rem;font-size:0.82rem;">
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🌍 <strong>Google News RSS</strong><br><span style="color:var(--text-muted);">World, Africa, Kenya, Tanzania</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">✝️ <strong>Google News (Christian)</strong><br><span style="color:var(--text-muted);">Church, Gospel, Revival, Bible</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">📺 <strong>BBC World / BBC Africa</strong><br><span style="color:var(--text-muted);">bbc.co.uk/news/rss</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">📡 <strong>Al Jazeera English</strong><br><span style="color:var(--text-muted);">aljazeera.com/rss</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🌍 <strong>DW Africa</strong><br><span style="color:var(--text-muted);">rss.dw.com — Africa focus</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">✝️ <strong>Christian Post</strong><br><span style="color:var(--text-muted);">christianpost.com/rss</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">✝️ <strong>Charisma News</strong><br><span style="color:var(--text-muted);">charismanews.com/feed</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">✝️ <strong>Christianity Today</strong><br><span style="color:var(--text-muted);">christianitytoday.com/rss</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">✝️ <strong>Relevant Magazine</strong><br><span style="color:var(--text-muted);">relevantmagazine.com/feed</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🇰🇪 <strong>Nation Africa</strong><br><span style="color:var(--text-muted);">nation.africa/rss.xml</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🇰🇪 <strong>Standard Media KE</strong><br><span style="color:var(--text-muted);">standardmedia.co.ke/rss</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🇹🇿 <strong>The Citizen TZ</strong><br><span style="color:var(--text-muted);">thecitizen.co.tz/feed</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">📺 <strong>YouTube Trending RSS</strong><br><span style="color:var(--text-muted);">KE, TZ, NG — No auth needed</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">🤖 <strong>Reddit (Public API)</strong><br><span style="color:var(--text-muted);">r/worldnews, r/Christianity + EA subs</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">💻 <strong>Hacker News</strong><br><span style="color:var(--text-muted);">hacker-news.firebaseio.com</span></div>
+                            <div style="background:rgba(0,255,100,0.05);border:1px solid rgba(0,255,100,0.15);border-radius:8px;padding:0.6rem;">📖 <strong>Wikipedia Current Events</strong><br><span style="color:var(--text-muted);">Daily global events, no auth</span></div>
+                        </div>
+
+                        <h4 style="color:var(--primary);margin-bottom:0.75rem;font-size:1rem;">🔑 Optional Paid APIs (More Results, Higher Freshness)</h4>
+                        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem;">Add these keys to Settings → API Keys section. All have a free tier.</p>
+                        <div style="display:flex;flex-direction:column;gap:0.75rem;font-size:0.82rem;">
+                            <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:0.75rem;">
+                                <div style="font-weight:700;color:var(--primary);margin-bottom:0.3rem;">NewsAPI.org → <code>NEWSAPI_KEY</code></div>
+                                <div style="color:var(--text-muted);">Free: 100 req/day. Covers 80,000 news sources worldwide.</div>
+                                <a href="https://newsapi.org/register" target="_blank" style="color:var(--primary);font-size:0.78rem;">→ Register free at newsapi.org/register</a>
+                            </div>
+                            <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:0.75rem;">
+                                <div style="font-weight:700;color:var(--primary);margin-bottom:0.3rem;">The Guardian → <code>GUARDIAN_KEY</code></div>
+                                <div style="color:var(--text-muted);">Free: 12 calls/sec, unlimited daily. Premium journalism.</div>
+                                <a href="https://bonobo.capi.guim.co.uk/register/developer" target="_blank" style="color:var(--primary);font-size:0.78rem;">→ Register free at open-platform.theguardian.com</a>
+                            </div>
+                            <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:0.75rem;">
+                                <div style="font-weight:700;color:var(--primary);margin-bottom:0.3rem;">GNews.io → <code>GNEWS_KEY</code></div>
+                                <div style="color:var(--text-muted);">Free: 100 req/day, real-time global news aggregator.</div>
+                                <a href="https://gnews.io/register" target="_blank" style="color:var(--primary);font-size:0.78rem;">→ Register free at gnews.io</a>
+                            </div>
+                        </div>
+                        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:1rem;">💡 After adding API keys in Settings, click Refresh Trends to get results from those sources too.</p>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700; margin-bottom: 0.2rem;">Trending News & Christian Topics</h3>
+                            <span id="trends-cache-info" style="font-size:0.75rem;color:var(--text-muted);">Loading...</span>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center;">
+                            <button class="btn btn-secondary" onclick="document.getElementById('api-sources-modal').style.display='flex'" style="padding:0.5rem 0.85rem;font-size:0.82rem;gap:0.4rem;">
+                                <i data-lucide="info" style="width:14px;height:14px;"></i> API Sources
+                            </button>
+                            <input type="text" id="trends-search" placeholder="Search trends..." oninput="filterTrends()" style="width: 200px; padding: 0.6rem 1rem; border-radius: 10px;">
+                            <button class="btn btn-secondary btn-circle" onclick="loadTrends(true)" id="trends-refresh-btn" title="Refresh Trends from all sources">
+                                <i data-lucide="refresh-cw" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Source Legend -->
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.72rem;">
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">🌍 Google News</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">📺 BBC / AJ / DW</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">✝️ Christian Post</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">🇰🇪 Nation / Standard</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">📱 Reddit</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">▶️ YouTube Trending</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">💻 HackerNews</span>
+                        <span style="display:flex;align-items:center;gap:0.3rem;background:rgba(255,255,255,0.05);padding:0.25rem 0.6rem;border-radius:20px;border:1px solid var(--border-subtle);">📖 Wikipedia</span>
+                    </div>
+
+                    <!-- Category Filter Chips -->
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;" id="trends-categories">
+                        <button class="btn btn-secondary active-filter" onclick="filterTrendsCategory('all')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🌐 All</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('christian')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">✝️ Christian</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('church_news')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">⛪ Church</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('gospel_music')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🎵 Gospel Music</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('revival')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🔥 Revival</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('persecution')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🙏 Persecution</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('world')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🌍 World</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('east_africa')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🇰🇪 East Africa</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('sports')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">⚽ Sports</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('tech')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🤖 Tech/AI</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('tragedy')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">💔 Tragedy</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('hope')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">✨ Hope</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('victory')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">🏆 Victory</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('reddit')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">📱 Reddit</button>
+                        <button class="btn btn-secondary" onclick="filterTrendsCategory('youtube')" style="padding: 0.4rem 0.9rem; font-size: 0.8rem; border-radius: 20px;">▶️ YouTube</button>
+                    </div>
+
+                    <div id="trends-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem;">
+                        <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 4rem 1rem;">
+                            <i data-lucide="sparkles" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.5; animation: spin 2s linear infinite;"></i>
+                            <p>Loading trending topics from 15+ global sources including BBC, Al Jazeera, Reddit, YouTube, Christian Post, Nation Africa...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7.5. TTS VOICE EXPLORER -->
+            <div id="tab-tts" class="tab-section">
+                <!-- Provider Select Bar -->
+                <div class="provider-select-bar">
+                    <button class="provider-btn active" id="btn-prov-edge" onclick="selectExplorerProvider('edge-tts')">
+                        <i data-lucide="globe" style="width:18px; height:18px;"></i>
+                        <span>Microsoft Edge TTS</span>
+                    </button>
+                    <button class="provider-btn" id="btn-prov-eleven" onclick="selectExplorerProvider('elevenlabs')">
+                        <i data-lucide="headphones" style="width:18px; height:18px;"></i>
+                        <span>ElevenLabs Premium</span>
+                    </button>
+                    <button class="provider-btn" id="btn-prov-puter" onclick="selectExplorerProvider('puter')">
+                        <i data-lucide="sparkles" style="width:18px; height:18px;"></i>
+                        <span>Puter AI Studio</span>
+                    </button>
+                </div>
+
+                <div class="form-grid">
+                    <!-- Left: Testing Sandbox -->
+                    <div class="glass-card" style="flex: 3;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700;">Voice Testing Sandbox</h3>
+                        
+                        <!-- Visualizer Box -->
+                        <div class="visualizer-container">
+                            <div class="visualizer-header">
+                                <span style="display:flex; align-items:center; gap:0.4rem;">
+                                    <i data-lucide="activity" style="width:14px; height:14px; color:var(--primary);"></i>
+                                    Audio Waveform
+                                </span>
+                                <span id="visualizer-status" style="font-weight:600; color:var(--text-muted); font-size: 0.75rem;">Idle</span>
+                            </div>
+                            <canvas id="waveform-canvas" width="600" height="70"></canvas>
+                        </div>
+
+                        <!-- Puter Sub-providers controls (hidden by default) -->
+                        <div id="puter-sub-provider-group" style="display: none; margin-bottom: 1.5rem;">
+                            <label style="margin-bottom: 0.5rem; display: block;">Select Puter AI Driver</label>
+                            <div class="sub-provider-group">
+                                <button class="sub-provider-btn active" id="btn-puter-aws" onclick="selectPuterSubProvider('aws-polly')">
+                                    <i data-lucide="mic" style="width:14px; height:14px;"></i> AWS Polly
+                                </button>
+                                <button class="sub-provider-btn" id="btn-puter-openai" onclick="selectPuterSubProvider('openai')">
+                                    <i data-lucide="sparkles" style="width:14px; height:14px;"></i> OpenAI
+                                </button>
+                                <button class="sub-provider-btn" id="btn-puter-eleven" onclick="selectPuterSubProvider('elevenlabs')">
+                                    <i data-lucide="headphones" style="width:14px; height:14px;"></i> ElevenLabs
+                                </button>
+                                <button class="sub-provider-btn" id="btn-puter-gemini" onclick="selectPuterSubProvider('gemini')">
+                                    <i data-lucide="zap" style="width:14px; height:14px;"></i> Gemini
+                                </button>
+                                <button class="sub-provider-btn" id="btn-puter-xai" onclick="selectPuterSubProvider('xai')">
+                                    <i data-lucide="cpu" style="width:14px; height:14px;"></i> xAI
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <!-- Hidden input keeping compatibility with legacy JS elements -->
+                            <input type="hidden" id="tts-explorer-provider" value="edge-tts">
+                            
+                            <!-- Dynamic fields based on provider -->
+                            <div class="form-group" id="explorer-voice-group">
+                                <label>Voice Speaker</label>
+                                <select id="tts-explorer-voice">
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="explorer-engine-group" style="display:none;">
+                                <label id="explorer-engine-label">Engine Type</label>
+                                <select id="tts-explorer-engine">
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="explorer-model-group" style="display:none;">
+                                <label id="explorer-model-label">Model Option</label>
+                                <select id="tts-explorer-model">
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="explorer-format-group" style="display:none;">
+                                <label id="explorer-format-label">Output Format</label>
+                                <select id="tts-explorer-format">
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Instructions Input (OpenAI/Gemini) -->
+                        <div class="form-group" id="explorer-instructions-group" style="margin-top: 1.5rem; display:none;">
+                            <label>Voice Style Instructions (Prompt)</label>
+                            <textarea id="tts-explorer-instructions" rows="2" style="width: 100%; padding: 0.75rem 1rem; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); color: #fff; resize: vertical;" placeholder="e.g. Speak in a slow, whispery, dramatic narrative tone..."></textarea>
+                        </div>
+
+                        <!-- Fine-tuning section -->
+                        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle);">
+                            <h4 style="font-family: var(--font-heading); font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: var(--secondary);">
+                                <i data-lucide="sliders" style="width:16px; height:16px;"></i> Voice Fine-Tuning
+                            </h4>
+                            
+                            <div class="form-grid">
+                                <div class="custom-slider-group">
+                                    <div class="slider-header">
+                                        <span>Speech Rate (Speed)</span>
+                                        <span id="rate-slider-val" class="slider-val">1.0x</span>
+                                    </div>
+                                    <input type="range" id="tts-explorer-rate-slider" min="0.25" max="2.0" step="0.05" value="1.0" class="custom-range-slider" oninput="updateFineTuningValues()">
+                                </div>
+                                <div class="custom-slider-group">
+                                    <div class="slider-header">
+                                        <span>Pitch Modulation</span>
+                                        <span id="pitch-slider-val" class="slider-val">1.0x</span>
+                                    </div>
+                                    <input type="range" id="tts-explorer-pitch-slider" min="0.5" max="2.0" step="0.05" value="1.0" class="custom-range-slider" oninput="updateFineTuningValues()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Test Text input -->
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label>Test Text to Read</label>
+                            <textarea id="tts-explorer-text" rows="3" style="width: 100%; padding: 0.75rem 1rem; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); color: #fff; resize: vertical;" placeholder="Type something to hear the voice...">Hello! This is a test of the text to speech synthesis. We can use this voice for our inspirational video reels.</textarea>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn" id="tts-explorer-btn" onclick="playExplorerTTS()">
+                                <i data-lucide="play-circle"></i>
+                                Generate & Preview Audio
+                            </button>
+                            <button class="btn btn-secondary" onclick="addToCompareList()">
+                                <i data-lucide="plus"></i>
+                                Add to Compare List
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Suitability Guide -->
+                    <div class="glass-card" style="flex: 2;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.25rem; font-size: 1.25rem; font-weight: 700; color: var(--cyan);">Voice Suitability Guide</h3>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.45;">
+                            Selecting the right narrator voice is crucial for audience retention. Match your content niche with the recommended profiles below:
+                        </p>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.82rem;">
+                            <div style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.18); border-radius: 8px; padding: 0.6rem 0.8rem;">
+                                <strong style="color: #38bdf8;">⛪ Gospel Niche (Sincere & Uplifting)</strong><br>
+                                <span style="color: var(--text-muted);">Edge: Jenny (F), Guy (M), Michelle (F). ElevenLabs: Rachel, Clyde.</span>
+                            </div>
+                            <div style="background: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.15); border-radius: 8px; padding: 0.6rem 0.8rem;">
+                                <strong style="color: #22d3ee;">🙏 Prayer Niche (Gentle, Meditative, Slow)</strong><br>
+                                <span style="color: var(--text-muted);">Edge: Jenny (F), Sonia (F). ElevenLabs: Rachel, Swahili Female (Bella). Pitch: Standard. Rate: -5% to -10%.</span>
+                            </div>
+                            <div style="background: rgba(234, 179, 8, 0.05); border: 1px solid rgba(234, 179, 8, 0.15); border-radius: 8px; padding: 0.6rem 0.8rem;">
+                                <strong style="color: #facc15;">🔥 Motivational (Powerful & Dynamic)</strong><br>
+                                <span style="color: var(--text-muted);">Edge: Tony (M), Christopher (M), Steffan (M). ElevenLabs: Adam, Dom. Pitch: -1Hz to -3Hz (Deep). Rate: +5%.</span>
+                            </div>
+                            <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 0.6rem 0.8rem;">
+                                <strong style="color: #34d399;">🎬 Cinematic / Whisper (Dramatic)</strong><br>
+                                <span style="color: var(--text-muted);">Edge: Brian (M), Oliver (M). Puter: Onyx, Fable. Rate: -10%.</span>
+                            </div>
+                            <div style="background: rgba(244, 63, 94, 0.05); border: 1px solid rgba(244, 63, 94, 0.15); border-radius: 8px; padding: 0.6rem 0.8rem;">
+                                <strong style="color: #fb7185;">🌍 Kiswahili Niche</strong><br>
+                                <span style="color: var(--text-muted);">Edge: Rafiki (M), Zuri (F). ElevenLabs: Swahili Female (Bella). Puter: Nova, Echo.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom: Comparison History Table -->
+                <div class="glass-card" style="margin-top: 2rem;">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center;">
+                        <span>Tested Voices Side-by-Side Comparison</span>
+                        <button class="btn btn-secondary" onclick="clearCompareList()" style="font-size: 0.8rem; padding: 0.4rem 1rem;">
+                            <i data-lucide="trash-2"></i> Clear Comparison List
+                        </button>
+                    </h3>
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Voice / Speaker</th>
+                                    <th>Provider</th>
+                                    <th>Speed</th>
+                                    <th>Pitch</th>
+                                    <th>Volume</th>
+                                    <th>Test Text Snippet</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tts-compare-body">
+                                <tr>
+                                    <td colspan="7" style="padding: 2rem; text-align: center; color: var(--text-muted);">No voices in comparison list. Add a voice from the sandbox above to compare.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- 8. SETTINGS CONTROL PANEL -->
+            <div id="tab-settings" class="tab-section">
+                <div class="glass-card">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 2rem; font-size: 1.35rem; font-weight: 700;">Global System Configurations</h3>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 2.5rem;">
+                        <!-- Group 1: General Preferences -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--secondary); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="sliders" style="width: 20px; height: 20px;"></i>
+                                General Preferences
+                            </h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Default Content Niche</label>
+                                    <select id="settings-niche">
+                                        <option value="gospel">Gospel Reels</option>
+                                        <option value="prayer">Prayer Reels</option>
+                                        <option value="praise">Praise & Worship</option>
+                                        <option value="motivational">Motivational</option>
+                                        <option value="swahili">Kiswahili</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Default Content Mode</label>
+                                    <select id="settings-content-mode">
+                                        <option value="reels">Instagram Reels / YouTube Shorts (9:16)</option>
+                                        <option value="shorts">YouTube Shorts (9:16)</option>
+                                        <option value="longform">Longform Landscape (16:9)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Default Language</label>
+                                    <select id="settings-lang" onchange="updateSettingsVoiceDropdown()">
+                                        <option value="english">English</option>
+                                        <option value="swahili">Kiswahili</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>System Mode (Data Mode)</label>
+                                    <select id="settings-mode">
+                                        <option value="data_saver">Data Saver (Prefer local files, save downloads)</option>
+                                        <option value="normal">Normal (Allow online media search/download)</option>
+                                        <option value="hybrid">Hybrid (Online scripts, local media assets)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group 1.5: Video Quality Preset -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--accent-success); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="film" style="width: 20px; height: 20px;"></i>
+                                Video Quality Preset
+                            </h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                                Controls encode quality (CRF), bitrate, and sharpening. Higher quality = larger file & slower render.
+                            </p>
+                            <div style="display: flex; gap: 1rem; flex-wrap: wrap;" id="quality-preset-cards">
+                                <!-- Draft -->
+                                <div class="quality-preset-card" id="qcard-draft" data-preset="draft" onclick="selectQualityPreset('draft')" style="flex: 1; min-width: 140px; max-width: 220px; padding: 1.25rem; border-radius: 16px; border: 2px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.3s ease; background: rgba(255,255,255,0.04);">
+                                    <div style="font-size: 1.6rem; margin-bottom: 0.5rem;">⚡</div>
+                                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.3rem;">Draft</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;">5 Mbps · CRF 23<br>Fast encode<br>Good for previews</div>
+                                </div>
+                                <!-- Standard -->
+                                <div class="quality-preset-card" id="qcard-standard" data-preset="standard" onclick="selectQualityPreset('standard')" style="flex: 1; min-width: 140px; max-width: 220px; padding: 1.25rem; border-radius: 16px; border: 2px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.3s ease; background: rgba(255,255,255,0.04);">
+                                    <div style="font-size: 1.6rem; margin-bottom: 0.5rem;">🎬</div>
+                                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.3rem;">Standard</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;">8 Mbps · CRF 20<br>Balanced quality<br>Daily uploads</div>
+                                </div>
+                                <!-- Premium -->
+                                <div class="quality-preset-card" id="qcard-premium" data-preset="premium" onclick="selectQualityPreset('premium')" style="flex: 1; min-width: 140px; max-width: 220px; padding: 1.25rem; border-radius: 16px; border: 2px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.3s ease; background: rgba(255,255,255,0.04);">
+                                    <div style="font-size: 1.6rem; margin-bottom: 0.5rem;">💎</div>
+                                    <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.3rem;">Premium</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.5;">12 Mbps · CRF 16<br>Near-lossless<br>Viral / archive</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group 2: Voice & TTS Engine -->
+
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="mic" style="width: 20px; height: 20px;"></i>
+                                Voice & Text-To-Speech Profile
+                            </h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>TTS Service Provider</label>
+                                    <select id="settings-tts-provider" onchange="onSettingsProviderChanged()">
+                                        <option value="direct-gemini" selected>Google Gemini Natural Speech (High Quality Swahili & English)</option>
+                                        <option value="puter">Puter AI Multi-Provider TTS (OpenAI / AWS / Gemini)</option>
+                                        <option value="edge-tts">Microsoft Edge TTS (Free, Unlimited)</option>
+                                        <option value="elevenlabs">ElevenLabs Premium (Custom API Key)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Active Voice Speaker</label>
+                                    <select id="settings-voice">
+                                        <!-- Loaded dynamically -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Narrator Speech Rate (Speed)</label>
+                                    <select id="settings-tts-rate">
+                                        <option value="-20%">Very Slow (-20%)</option>
+                                        <option value="-15%">Slower (-15%)</option>
+                                        <option value="-10%">Slow (-10%)</option>
+                                        <option value="-5%">Gentle (-5%)</option>
+                                        <option value="+0%" selected>Standard (+0%)</option>
+                                        <option value="+5%">Slightly Fast (+5%)</option>
+                                        <option value="+10%">Fast (+10%)</option>
+                                        <option value="+15%">Faster (+15%)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Narrator Pitch Modulation</label>
+                                    <select id="settings-tts-pitch">
+                                        <option value="-5Hz">Deep Pitch (-5Hz)</option>
+                                        <option value="-3Hz">Lower Pitch (-3Hz)</option>
+                                        <option value="-1Hz">Slightly Lower (-1Hz)</option>
+                                        <option value="+0Hz" selected>Standard (+0Hz)</option>
+                                        <option value="+1Hz">Slightly Higher (+1Hz)</option>
+                                        <option value="+3Hz">Higher Pitch (+3Hz)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Narrator Voice Volume</label>
+                                    <select id="settings-tts-volume">
+                                        <option value="-20%">Soft (-20%)</option>
+                                        <option value="-10%">Slightly Soft (-10%)</option>
+                                        <option value="+0%" selected>Standard (+0%)</option>
+                                        <option value="+10%">Loud (+10%)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group 3: Subtitles & Soundtrack -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--accent-success); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="music" style="width: 20px; height: 20px;"></i>
+                                Subtitles & Soundtrack
+                            </h4>
+                            <div class="form-grid" style="align-items: center;">
+                                <div class="form-group">
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="settings-subtitles-enabled" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Render Subtitles / Captions on Videos (Default: OFF for clean video)</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="settings-music-enabled" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Enable Ambient Background Music Soundtrack</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Background Music Volume (0.0 to 1.0)</label>
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <input type="range" id="settings-music-volume" min="0.0" max="1.0" step="0.05" value="0.35" style="flex-grow: 1; accent-color: var(--primary);">
+                                        <span id="settings-music-volume-lbl" style="font-family: var(--font-code); font-size: 0.9rem; font-weight: 600; width: 40px; text-align: right;">0.35</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="settings-hook-audio-enabled" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Enable Cinematic Hook Sound Effect (Whoosh SFX)</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Hook Sound Effect Volume (0.0 to 1.0)</label>
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <input type="range" id="settings-hook-audio-volume" min="0.0" max="1.0" step="0.05" value="0.25" style="flex-grow: 1; accent-color: var(--primary);">
+                                        <span id="settings-hook-audio-volume-lbl" style="font-family: var(--font-code); font-size: 0.9rem; font-weight: 600; width: 40px; text-align: right;">0.25</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="toggle-container" style="cursor: pointer;">
+                                        <input type="checkbox" id="settings-audio-normalize-enabled" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Audio Peak Limiter (Raw Passthrough When Unchecked)</span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group" id="subtitle-styles-container" style="grid-column: span 2; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 1.5rem; margin-top: 1rem;">
+                                    <h5 style="margin-top: 0; margin-bottom: 1rem; color: var(--text-normal); font-weight: 600;">Subtitle & Animation Styling Settings</h5>
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                        <div class="form-group">
+                                            <label>Caption Animation Style</label>
+                                            <select id="settings-subtitle-animation-style">
+                                                <option value="whisper" selected>Whisper Stagger (Word Fade & Flow)</option>
+                                                <option value="slide_up">Slide Up Kinetic (Smooth Reveal)</option>
+                                                <option value="karaoke">Karaoke Highlight (Dynamic Active Word)</option>
+                                                <option value="clean">Clean Minimalist (Classic Line)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Font Size</label>
+                                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                                <input type="range" id="settings-subtitle-font-size" min="30" max="120" value="56" style="flex-grow: 1; accent-color: var(--primary);">
+                                                <span id="settings-subtitle-font-size-lbl" style="font-family: var(--font-code); font-size: 0.9rem; width: 30px; text-align: right;">56</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Vertical Position Y (0.1 to 0.9)</label>
+                                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                                <input type="range" id="settings-subtitle-position-y" min="0.1" max="0.9" step="0.02" value="0.68" style="flex-grow: 1; accent-color: var(--primary);">
+                                                <span id="settings-subtitle-position-y-lbl" style="font-family: var(--font-code); font-size: 0.9rem; width: 40px; text-align: right;">0.68</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Font Color (Name or Hex)</label>
+                                            <input type="text" id="settings-subtitle-color" value="white" placeholder="white or #ffffff" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem;">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Outline Color</label>
+                                            <input type="text" id="settings-subtitle-stroke-color" value="black" placeholder="black or #000000" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem;">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Outline Width</label>
+                                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                                <input type="range" id="settings-subtitle-stroke-width" min="0" max="10" value="3" style="flex-grow: 1; accent-color: var(--primary);">
+                                                <span id="settings-subtitle-stroke-width-lbl" style="font-family: var(--font-code); font-size: 0.9rem; width: 30px; text-align: right;">3</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Background Box Opacity (0 - 255)</label>
+                                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                                <input type="range" id="settings-subtitle-bg-opacity" min="0" max="255" value="148" style="flex-grow: 1; accent-color: var(--primary);">
+                                                <span id="settings-subtitle-bg-opacity-lbl" style="font-family: var(--font-code); font-size: 0.9rem; width: 35px; text-align: right;">148</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Max Words Per Line</label>
+                                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                                <input type="range" id="settings-subtitle-max-words" min="2" max="12" value="5" style="flex-grow: 1; accent-color: var(--primary);">
+                                                <span id="settings-subtitle-max-words-lbl" style="font-family: var(--font-code); font-size: 0.9rem; width: 30px; text-align: right;">5</span>
+                                            </div>
+                                        </div>
+                                        <div class="form-group" style="display: flex; align-items: center;">
+                                            <label class="toggle-container" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;">
+                                                <input type="checkbox" id="settings-subtitle-karaoke" checked style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                                <span>Word Karaoke Highlight</span>
+                                            </label>
+                                        </div>
+                                        <div class="form-group" style="grid-column: span 2;">
+                                            <label>Custom TTF Font Path (relative to project root)</label>
+                                            <input type="text" id="settings-subtitle-font-path" placeholder="e.g. assets/fonts/UTM Kabel KT.ttf" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem; width: 100%;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group 3.5: Video Branding & Logo Watermark -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--secondary); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="award" style="width: 20px; height: 20px;"></i>
+                                Video Logo / Watermark Overlay
+                            </h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+                                Overlay your branding logo or watermark image on generated videos.
+                            </p>
+                            <div class="form-grid">
+                                <div class="form-group" style="display: flex; align-items: center; grid-column: span 2;">
+                                    <label class="toggle-container" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                        <input type="checkbox" id="settings-watermark-enabled" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                        <span>Enable Logo Watermark Overlay</span>
+                                    </label>
+                                </div>
+                                <div class="form-group">
+                                    <label>Logo File Path (relative to root)</label>
+                                    <input type="text" id="settings-watermark-path" placeholder="e.g. assets/watermark.png" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem; width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Logo Position (x, y alignment)</label>
+                                    <select id="settings-watermark-position" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem; width: 100%;">
+                                        <option value="right,top">Top Right (Default)</option>
+                                        <option value="left,top">Top Left</option>
+                                        <option value="right,bottom">Bottom Right</option>
+                                        <option value="left,bottom">Bottom Left</option>
+                                        <option value="center,center">Center</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Logo Opacity (0.0 to 1.0)</label>
+                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                        <input type="range" id="settings-watermark-opacity" min="0.0" max="1.0" step="0.05" value="0.45" style="flex-grow: 1; accent-color: var(--primary);">
+                                        <span id="settings-watermark-opacity-lbl" style="font-family: var(--font-code); font-size: 0.9rem; font-weight: 600; width: 40px; text-align: right;">0.45</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Logo Height (pixels)</label>
+                                    <input type="number" id="settings-watermark-height" min="10" max="400" value="65" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem; width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>Logo Margin (pixels)</label>
+                                    <input type="number" id="settings-watermark-margin" min="0" max="200" value="35" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); padding: 0.4rem 0.6rem; border-radius: 4px; color: var(--text-normal); font-size: 0.9rem; width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group 4: API Access Credentials -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--accent-warning); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="key" style="width: 20px; height: 20px;"></i>
+                                API Access Credentials (.env Keys)
+                            </h4>
+                            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.4;">
+                                Input your API keys below. Leave fields empty if you don't use the provider. Keys are saved securely in your local environment file.
+                            </p>
+                            
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>OpenAI API Key (GPT-4o/GPT-4o-Mini)</label>
+                                    <input type="password" id="key-openai" placeholder="sk-proj-..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Cloudflare Account ID (Workers AI)</label>
+                                    <input type="password" id="key-cloudflare-account" placeholder="9fbb1d44..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Cloudflare API Token</label>
+                                    <input type="password" id="key-cloudflare-token" placeholder="cfut_..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Groq Cloud API Key (LLaMA Inference)</label>
+                                    <input type="password" id="key-groq" placeholder="gsk_..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Google Gemini API Key (Flash Engine)</label>
+                                    <input type="password" id="key-gemini" placeholder="AIzaSy..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>OpenRouter API Key (Alternative LLaMA)</label>
+                                    <input type="password" id="key-openrouter" placeholder="sk-or-v1-..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Pexels Stock API Key (Video Stock Downloader)</label>
+                                    <input type="password" id="key-pexels" placeholder="Paste your Pexels token here" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Pixabay API Key (Backup Media Downloader)</label>
+                                    <input type="password" id="key-pixabay" placeholder="Paste your Pixabay key here" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>ElevenLabs Premium Voice Key</label>
+                                    <input type="password" id="key-elevenlabs" placeholder="ElevenLabs Account API Key" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>Puter.com Auth Token (Free/Paid AI)</label>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <input type="password" id="key-puter" placeholder="Paste your Puter Auth Token here" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); flex-grow: 1;">
+                                        <button type="button" class="btn btn-secondary" onclick="loginWithPuter()" style="font-size: 0.8rem; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; background: var(--secondary); border: 1px solid var(--border-subtle);">
+                                            <i data-lucide="log-in" style="width: 14px; height: 14px;"></i> Log In to Puter
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Group: Trending News API Keys -->
+                        <div>
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--accent-warning); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="rss" style="width: 20px; height: 20px;"></i>
+                                Trending News API Keys <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">(Optional — all have free tiers)</span>
+                            </h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>NewsAPI.org Key <a href="https://newsapi.org/register" target="_blank" style="color:var(--primary);font-size:0.72rem;">(Get free key)</a></label>
+                                    <input type="password" id="key-newsapi" placeholder="e.g. abc123def456..." style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>The Guardian API Key <a href="https://open-platform.theguardian.com/access/support-tier1" target="_blank" style="color:var(--primary);font-size:0.72rem;">(Get free key)</a></label>
+                                    <input type="password" id="key-guardian" placeholder="e.g. test or your-guardian-key" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                                <div class="form-group">
+                                    <label>GNews.io Key <a href="https://gnews.io/register" target="_blank" style="color:var(--primary);font-size:0.72rem;">(Get free key)</a></label>
+                                    <input type="password" id="key-gnews" placeholder="e.g. your-gnews-api-key" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Action Buttons -->
+                        <div style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                            <button class="btn" onclick="saveSystemSettings()" id="settings-save-btn">
+                                <i data-lucide="save"></i>
+                                Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8.5. SONG TO REEL (LYRICS MODE) -->
+            <div id="tab-lyrics-mode" class="tab-section">
+                <div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start;">
+                    <!-- Parameters Card -->
+                    <div class="glass-card" style="flex: 2; min-width: 320px;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="music" style="color: var(--secondary);"></i>
+                            Song to Reel Generator
+                        </h3>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label>Choose Song from Assets</label>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <select id="lyrics-song" style="flex-grow: 1;" onchange="onLyricsSongChanged()">
+                                    <!-- Loaded dynamically -->
+                                </select>
+                            </div>
+                            <div class="music-upload-row" style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-subtle); border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <i data-lucide="music-4" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Upload custom song (.mp3, .wav)</span>
+                                </div>
+                                <input type="file" id="lyrics-song-upload" accept="audio/mp3,audio/wav" style="display: none;" onchange="uploadCustomMusic('lyrics-song-upload', 'lyrics-song', 'lyrics-song-upload-status')">
+                                <button class="btn btn-secondary" onclick="document.getElementById('lyrics-song-upload').click()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; height: auto; border-radius: 4px;">
+                                    <span id="lyrics-song-upload-status">Upload Song</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Lyrics Input Mode</label>
+                                <select id="lyrics-input-mode" onchange="onLyricsModeChanged()">
+                                    <option value="whisper" selected>🎙️ Auto-Transcribe (Whisper AI)</option>
+                                    <option value="custom">✍️ Edit & Review Custom Lyrics</option>
+                                    <option value="none">🚫 No Subtitles / Clean Reel (For CapCut)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Song Language</label>
+                                <select id="lyrics-lang">
+                                    <option value="auto" selected>🌐 Auto-Detect Language</option>
+                                    <option value="swahili">Swahili</option>
+                                    <option value="english">English</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Video Niche (B-Roll Theme)</label>
+                                <select id="lyrics-niche">
+                                    <option value="gospel" selected>Gospel (Nature/Peaceful)</option>
+                                    <option value="dance">💃 Dance / Energetic (assets/stock/dance)</option>
+                                    <option value="praise">Praise & Worship</option>
+                                    <option value="motivational">Motivational</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- WhatsApp-Style Audio Trimmer & Real-Time Spectrum Visualizer -->
+                        <div id="lyrics-audio-container" style="margin-top: 1.5rem; padding: 1.25rem; background: rgba(0,0,0,0.3); border: 1px dashed var(--border-subtle); border-radius: 14px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <label style="font-weight: 700; color: var(--secondary); display: flex; align-items: center; gap: 0.5rem;">
+                                    <i data-lucide="activity"></i> Web Audio Spectrum Visualizer & 30s Trimmer
+                                </label>
+                                <span id="trimmer-range-label" style="font-size: 0.85rem; color: var(--accent-success); font-weight: 600;">00:00 - 00:30 (30.0s)</span>
+                            </div>
+                            
+                            <!-- Real-time Canvas Spectrum Visualizer -->
+                            <div style="position: relative; width: 100%; height: 60px; background: rgba(0,0,0,0.4); border-radius: 8px; margin-bottom: 0.75rem; overflow: hidden;">
+                                <canvas id="lyrics-spectrum-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+                            </div>
+
+                            <!-- Single Audio Player -->
+                            <audio id="lyrics-audio-preview" controls crossorigin="anonymous" style="width: 100%; margin-bottom: 0.75rem; display: none;" ontimeupdate="onAudioTimeUpdated()" onloadedmetadata="onAudioMetadataLoaded()" onplay="onAudioPlayTriggered()" onpause="onAudioPauseTriggered()"></audio>
+
+                            <!-- WhatsApp-Style Interactive Range Slider -->
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                                    <span>Drag slider to pick 30s Reel Section (Chorus / Intro / Hook):</span>
+                                    <span id="trimmer-song-duration">Total: 00:00</span>
+                                </div>
+                                <input type="range" id="lyrics-trimmer-slider" min="0" max="100" value="0" step="1" style="width: 100%; accent-color: var(--primary); cursor: pointer;" oninput="onTrimmerSliderInput()" onchange="onTrimmerSliderChanged()">
+                            </div>
+
+                            <!-- Studio Playback Enhancement Bar -->
+                            <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Audio Mode:</span>
+                                    <div style="display: flex; gap: 0.35rem;">
+                                        <button type="button" class="btn btn-secondary" id="btn-eq-flat" onclick="applyEQPreset('flat')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; height: auto;">Pure Direct</button>
+                                        <button type="button" class="btn btn-secondary" id="btn-eq-vocal" onclick="applyEQPreset('vocal')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; height: auto;">Vocal Clarity</button>
+                                        <button type="button" class="btn btn-secondary" id="btn-eq-bass" onclick="applyEQPreset('bass')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; height: auto;">Bass Boost</button>
+                                        <button type="button" class="btn btn-secondary" id="btn-eq-sparkle" onclick="applyEQPreset('sparkle')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border-radius: 4px; height: auto;">Sparkle</button>
+                                    </div>
+                                </div>
+                                <span id="audio-engine-status-lbl" style="font-size: 0.72rem; color: var(--accent-success); font-family: var(--font-code);">Clean (Direct)</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.5rem;">
+                            <button class="btn btn-secondary" onclick="transcribeAndPreviewLyrics()" id="btn-transcribe-preview" style="width: 100%; padding: 0.85rem; font-size: 0.95rem; font-weight: 600;">
+                                <i data-lucide="file-text"></i> Transcribe & Preview 30s Selection (Whisper AI)
+                            </button>
+                        </div>
+
+                        <div class="form-group" id="group-custom-lyrics" style="margin-top: 1.5rem; display: none;">
+                            <label>Lyrics Preview & Editor (Edit 30s clip line by line)</label>
+                            <textarea id="lyrics-custom-text" rows="6" placeholder="Transcribed lyrics for selected 30s clip will appear here for review..." style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--text-main); font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Words Per Line (Whisper Mode)</label>
+                                <select id="lyrics-words-per-line">
+                                    <option value="2">2 Words</option>
+                                    <option value="3">3 Words</option>
+                                    <option value="4" selected>4 Words</option>
+                                    <option value="5">5 Words</option>
+                                    <option value="6">6 Words</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Mood Color Grade</label>
+                                <select id="lyrics-mood">
+                                    <option value="default" selected>Default (Normal)</option>
+                                    <option value="peaceful">Peaceful (Warm blue)</option>
+                                    <option value="powerful">Powerful (Gold overlay)</option>
+                                    <option value="hopeful">Hopeful (Sunny yellow)</option>
+                                    <option value="cinematic">Cinematic (Retro cinematic)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Audio Render Mode</label>
+                                <select id="lyrics-audio-mode">
+                                    <option value="clip" selected>✂️ Short Reel Clip (Fast)</option>
+                                    <option value="full">🎵 Full Song (Entire Audio)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Clip Length</label>
+                                <select id="lyrics-clip-duration">
+                                    <option value="15">15 Seconds (Shorts/Reels)</option>
+                                    <option value="30" selected>30 Seconds (Standard)</option>
+                                    <option value="60">60 Seconds (Extended)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label>Song Reel Title / Display Headline</label>
+                            <input type="text" id="lyrics-song-title" placeholder="e.g. Yesu Unipendaye - Praise Reel" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--text-main);">
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Aspect Ratio</label>
+                                <select id="lyrics-aspect-ratio">
+                                    <option value="9:16" selected>📱 Vertical 9:16 (TikTok/Reels)</option>
+                                    <option value="16:9">📺 Horizontal 16:9 (YouTube)</option>
+                                    <option value="1:1">🔲 Square 1:1 (Instagram)</option>
+                                    <option value="4:5">📸 Portrait 4:5 (Insta Feed)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Caption Style Design</label>
+                                <select id="lyrics-caption-style">
+                                    <option value="typing" selected>✍️ Typing Effect (Cursor Reveal)</option>
+                                    <option value="bounce">🎤 Word-Bounce Karaoke</option>
+                                    <option value="classic">🎬 Hollywood Classic</option>
+                                    <option value="cyberpunk">🔥 Neon Glow Cyberpunk</option>
+                                    <option value="gospel_gold">✨ Golden Gospel Royalty</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid" style="margin-top: 1.5rem;">
+                            <div class="form-group">
+                                <label>Caption Screen Position</label>
+                                <select id="lyrics-caption-position">
+                                    <option value="center" selected>🎯 Center Axis (Middle of Screen)</option>
+                                    <option value="bottom">👇 Lower Third (Bottom of Screen)</option>
+                                    <option value="top">👆 Upper Third (Top of Screen)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Start Offset (Seconds)</label>
+                                <input type="number" id="lyrics-start-time" value="0" min="0" step="1" placeholder="e.g. 0 or 30 for chorus" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 10px; color: var(--text-main);">
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-top: 1.5rem;">
+                            <label class="toggle-container" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="lyrics-include-dance" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                                <span>💃 Include Dance Clips (from assets/stock/dance)</span>
+                            </label>
+                        </div>
+
+                        <button class="btn btn-block" id="btn-compile-lyrics" style="width: 100%; margin-top: 2rem; font-size: 1.1rem; padding: 1.25rem;" onclick="startLyricsCompilation()">
+                            <i data-lucide="play-circle"></i>
+                            Approve & Compile
+                        </button>
+                    </div>
+
+                    <!-- Status Console Card -->
+                    <div class="glass-card" id="lyrics-status-card" style="flex: 3; min-width: 380px;">
+                        <div class="card-header-row" style="margin-bottom: 1rem;">
+                            <h3 style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 700;">Lyrics Compilation Process</h3>
+                        </div>
+                        <div class="progress-block" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span id="lyrics-overall-status" style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">Waiting to start...</span>
+                                <span id="lyrics-overall-percent" style="font-size: 0.85rem; font-weight: 700; color: var(--secondary); font-family: var(--font-code);">0%</span>
+                            </div>
+                            <div class="progress-track" style="height: 10px; width: 100%; background: rgba(255, 255, 255, 0.06); border-radius: 99px; overflow: hidden; position: relative;">
+                                <div class="progress-bar-fill" id="lyrics-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff0000, #06b6d4); transition: width 0.4s ease;"></div>
+                            </div>
+                        </div>
+                        <div class="console-box" id="lyrics-active-console" style="height: 250px;">Console logs ready. Click Compile to start.</div>
+
+                        <div id="lyrics-finished-gallery" style="margin-top: 2rem; display: none; border-top: 1px solid var(--border-subtle); padding-top: 1.5rem;">
+                            <h4 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.1rem; font-weight: 700; color: var(--text-main);">Generated Reel</h4>
+                            <div id="lyrics-gallery-container" style="display: flex; justify-content: center;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 9. VOICE LAB (TTS Explorer Studio) -->
+            <div id="tab-vlab" class="tab-section">
+
+                <!-- Filter Row -->
+                <div class="glass-card" style="padding: 1.25rem 1.5rem; margin-bottom: 1rem;">
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Language</label>
+                            <select id="vlab-lang" onchange="vlabFilterVoices()">
+                                <option value="">All Languages</option>
+                                <option value="sw" selected>Swahili (sw)</option>
+                                <option value="en">English (en)</option>
+                                <option value="yo">Yoruba (yo)</option>
+                                <option value="fr">French (fr)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Provider</label>
+                            <select id="vlab-provider" onchange="vlabFilterVoices()">
+                                <option value="">All Providers</option>
+                                <option value="edge-tts">Edge TTS (free)</option>
+                                <option value="puter">Puter (Gemini/OpenAI)</option>
+                                <option value="elevenlabs">ElevenLabs</option>
+                                <option value="direct-gemini">Direct Gemini</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label>Gender</label>
+                            <select id="vlab-gender" onchange="vlabFilterVoices()">
+                                <option value="">Any Gender</option>
+                                <option value="Female">Female</option>
+                                <option value="Male">Male</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; display: flex; align-items: flex-end;">
+                            <button class="btn" onclick="vlabLoadVoices(true)" style="width: 100%;" id="vlab-refresh-btn">
+                                <i data-lucide="refresh-cw"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Text + Controls -->
+                <div class="glass-card" style="margin-bottom: 1rem;">
+                    <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; font-size: 1.15rem; font-weight: 700;">
+                        <i data-lucide="mic-2" style="vertical-align: middle; margin-right: 0.5rem;"></i>Preview Text
+                    </h3>
+                    <div class="form-group">
+                        <textarea id="vlab-preview-text" rows="2"
+                            style="resize: vertical; font-size: 1rem;"
+                            placeholder="Mungu hakusahau. Amini Yeye leo. / God has not forgotten you. Trust Him today.">Mungu hakusahau. Amini Yeye leo.</textarea>
+                    </div>
+
+                    <!-- Active Preview Player -->
+                    <div id="vlab-player-section" style="display:none; background: var(--bg-glass); border-radius: 12px; padding: 1rem; margin-top: 0.75rem; border: 1px solid var(--border-subtle);">
+                        <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <div id="vlab-playing-label" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.35rem;">Now previewing:</div>
+                                <div id="vlab-playing-voice" style="font-size: 1rem; font-weight: 600; color: var(--accent-primary);">—</div>
+                            </div>
+                            <audio id="vlab-audio" controls style="flex: 2; min-width: 220px; accent-color: var(--accent-primary);"></audio>
+                            <button class="btn btn-secondary" onclick="vlabUseThisVoice()" id="vlab-use-btn" style="display:none;">
+                                <i data-lucide="check-circle"></i> Use This Voice
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Voice Grid -->
+                <div class="glass-card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+                        <h3 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 700; margin: 0;">
+                            <i data-lucide="volume-2" style="vertical-align: middle; margin-right: 0.5rem;"></i>
+                            Voice Library
+                        </h3>
+                        <span id="vlab-count" style="font-size: 0.8rem; color: var(--text-muted); background: var(--bg-glass); padding: 0.25rem 0.75rem; border-radius: 20px;">Loading...</span>
+                    </div>
+
+                    <div id="vlab-loading" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i data-lucide="loader" class="animate-spin"></i>
+                        <p style="margin-top: 0.75rem;">Loading voices from Edge TTS...</p>
+                    </div>
+
+                    <div id="vlab-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; display: none;">
+                        <!-- Voice cards injected by JS -->
+                    </div>
+
+                    <div id="vlab-empty" style="display: none; text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i data-lucide="search-x" style="width: 2rem; height: 2rem;"></i>
+                        <p style="margin-top: 0.5rem;">No voices match the current filters.</p>
+                    </div>
+                </div>
+
+            </div><!-- /tab-tts -->
+
+        </main>
+    </div>
+
+    <!-- Command Palette UI -->
+    <div id="cmd-overlay"></div>
+    <div id="cmd-palette">
+        <input type="text" id="cmd-input" placeholder="Search commands or jump to section... (Press Esc to close)">
+        <ul id="cmd-results">
+            <li class="cmd-item" onclick="switchTab('creator'); toggleCmdPalette();"><i data-lucide="edit-3"></i> Go to Script Creator</li>
+            <li class="cmd-item" onclick="switchTab('trends'); toggleCmdPalette();"><i data-lucide="trending-up"></i> Go to Trending Finder</li>
+            <li class="cmd-item" onclick="switchTab('downloader'); toggleCmdPalette();"><i data-lucide="download-cloud"></i> Go to Downloader Hub</li>
+            <li class="cmd-item" onclick="switchTab('composer'); toggleCmdPalette();"><i data-lucide="sliders"></i> Go to Composer Timeline</li>
+            <li class="cmd-item" onclick="switchTab('browser'); toggleCmdPalette();"><i data-lucide="folder-open"></i> Go to Asset Browser</li>
+            <li class="cmd-item" onclick="switchTab('tts'); toggleCmdPalette();"><i data-lucide="volume-2"></i> Go to TTS Voice Explorer</li>
+            <li class="cmd-item" onclick="switchTab('vlab'); toggleCmdPalette();"><i data-lucide="mic"></i> Go to Voice Lab (Studio)</li>
+            <li class="cmd-item" onclick="switchTab('publisher'); toggleCmdPalette();"><i data-lucide="send"></i> Go to Publisher Pipeline</li>
+            <li class="cmd-item" onclick="switchTab('scheduler'); toggleCmdPalette();"><i data-lucide="calendar"></i> Go to Scheduler Queue</li>
+            <li class="cmd-item" onclick="switchTab('settings'); toggleCmdPalette();"><i data-lucide="settings"></i> Go to Settings Control</li>
+        </ul>
+    </div>
+
+    <script>
+        lucide.createIcons();
+    </script>
+
+    <!-- Audio Player for TTS Preview -->
+    <audio id="tts-audio-player" style="display: none;"></audio>
+    <audio id="bg-music-player" loop style="display: none;"></audio>
+
+    <script src="/js/app.js?v=2.6.0"></script>
+
+    <!-- Dynamic Loading Overlay -->
+    <div id="global-loading-overlay" class="glass-overlay" style="display: none;">
+        <div class="spin-loader"></div>
+        <div id="global-loading-text">Processing your request...</div>
+    </div>
+</body>
+</html>

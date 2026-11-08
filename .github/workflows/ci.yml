@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Byte-compile source
+        run: python -m compileall -q main.py config src mwijay_daily_brief.py piano_sifa_hf_generator.py piano_sifa_prompts.py piano_sifa_trends_picker.py
+
+      - name: Check .env is not committed
+        run: |
+          if git ls-files | grep -Eq '(^|/)\.env$|client_secrets\.json$'; then
+            echo "::error::Secret files are tracked in git"
+            exit 1
+          fi

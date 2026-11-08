@@ -1,0 +1,24 @@
+# Core web dashboard
+fastapi
+uvicorn
+httpx
+
+# Media pipeline
+moviepy
+pydub
+numpy
+pillow
+proglog
+audioop-lts; python_version >= "3.13"
+
+# Speech / text
+edge-tts
+faster-whisper
+huggingface-hub
+requests
+
+# Browser automation (publishing + Pinterest scraping)
+playwright
+
+# Utilities
+loguru

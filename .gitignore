@@ -1,0 +1,136 @@
+# ============================================================
+# VIDEOFACTORY .gitignore
+# Code only. Assets and outputs stay local (too large for Git)
+# ============================================================
+
+# --- Environment & Secrets (NEVER commit these) ---
+.env
+*.env
+.env.local
+.env.production
+config/client_secrets.json
+client_secrets*.json
+*token*.json
+*credentials*.json
+config/*.pem
+config/*.key
+
+# --- Python Cache & Compiled Files ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# --- Virtual Environment ---
+venv/
+env/
+ENV/
+.venv/
+venv.bak/
+
+# --- Heavy Asset Folders (local only, ~5GB total) ---
+assets/music/
+assets/stock/gospel/
+assets/stock/nature/
+assets/stock/motivational/
+assets/stock/swahili/
+assets/stock/business/
+assets/stock/pinterest/characters/
+assets/stock/pinterest/autobroll/
+assets/hooks/
+assets/browser_profiles/
+
+# --- Output Files (generated content, stays local) ---
+output/audio/
+output/videos/
+output/subtitles/
+output/lyrics/
+output/temp/
+output/*.db
+*.db
+
+# --- Local scratch / experiments / tooling ---
+scratch/
+storage/
+components/
+src/components/
+_reference_*
+.kilo/
+.kilocode/
+firebase-debug.log
+
+# --- Output JSON Databases (keep these actually — they are small and important) ---
+# output/.topic_history.json     # DO NOT ignore, commit this
+# output/.series_progress.json   # DO NOT ignore, commit this
+# output/publication_log.json    # DO NOT ignore, commit this
+# output/upload_queue.json       # DO NOT ignore, commit this
+
+# Ignore only the temp audio subfolder
+output/audio/_temp/
+
+# --- Log Files ---
+*.log
+firebase-debug.log
+debug_screenshot_*.png
+output/debug_screenshot_*.png
+
+# --- Media File Types (never commit raw media) ---
+*.mp4
+*.mp3
+*.wav
+*.ogg
+*.flac
+*.aac
+*.m4a
+*.webm
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.bmp
+*.tiff
+*.svg
+
+# EXCEPTION: Keep placeholder files
+!assets/**/.gitkeep
+!output/**/.gitkeep
+!**/.gitkeep
+
+# --- IDE & System Files ---
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Node (if any JS tooling is added later) ---
+node_modules/
+npm-debug.log*
+
+# --- Playwright Browser Binaries ---
+# These are downloaded via "playwright install", not committed
+ms-playwright/
+
+# --- Temp & Build Files ---
+*.tmp
+*.temp
+*.bak
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- MoviePy Temp Files ---
+TEMP_MPY_wvf_snd.mp4
