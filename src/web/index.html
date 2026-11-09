@@ -71,6 +71,10 @@
                     <i data-lucide="music-3"></i>
                     <span>Song to Reel</span>
                 </li>
+                <li class="nav-item" onclick="switchTab('clipper')" data-tooltip="Longform Clipper">
+                    <i data-lucide="scissors"></i>
+                    <span>Longform Clipper</span>
+                </li>
                 <li class="nav-item" onclick="switchTab('tts')" data-tooltip="TTS Explorer">
                     <i data-lucide="volume-2"></i>
                     <span>TTS Explorer</span>
@@ -1781,7 +1785,175 @@
                 </div>
             </div>
 
-            <!-- 9. VOICE LAB (TTS Explorer Studio) -->
+            <!-- 9. LONGFORM CLIPPER (Sermons/Podcasts → Vertical Shorts) -->
+            <div id="tab-clipper" class="tab-section">
+                <div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start;">
+
+                    <!-- Source & Parameters -->
+                    <div class="glass-card" style="flex: 2; min-width: 320px;">
+                        <h3 style="font-family: var(--font-heading); margin-bottom: 0.4rem; font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="scissors" style="color: var(--secondary);"></i>
+                            Longform Clipper
+                        </h3>
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.4rem; line-height: 1.55;">
+                            Sermons, podcasts &amp; interviews → captioned 9:16 shorts.
+                            Drop a long video into <code>assets/longform/</code> (or upload below),
+                            then <strong>Analyze</strong> to score hook-worthy moments and
+                            <strong>Render</strong> the best ones with grouped captions + a copy-paste social kit.
+                        </p>
+
+                        <div class="form-group" style="margin-bottom: 1.25rem;">
+                            <label>Source Video</label>
+                            <div style="display: flex; gap: 0.6rem; align-items: center;">
+                                <select id="clipper-source" style="flex-grow: 1;">
+                                    <option value="">— Load sources —</option>
+                                </select>
+                                <button class="btn btn-secondary btn-circle" onclick="loadClipperSources()" title="Refresh sources">
+                                    <i data-lucide="refresh-cw" style="width: 15px; height: 15px;"></i>
+                                </button>
+                            </div>
+                            <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-subtle); border-radius: 6px;">
+                                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                                    <i data-lucide="upload-cloud" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Upload long video (.mp4, .mov, .mkv, .webm)</span>
+                                </div>
+                                <input type="file" id="clipper-upload-file" accept="video/mp4,video/quicktime,video/x-matroska,video/webm,.mkv,.m4v,.avi" style="display: none;" onchange="uploadClipperVideo()">
+                                <button class="btn btn-secondary" onclick="document.getElementById('clipper-upload-file').click()" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; height: auto; border-radius: 4px;">
+                                    <span id="clipper-upload-status">Upload Video</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Language</label>
+                                <select id="clipper-language">
+                                    <option value="auto" selected>🌐 Auto-Detect</option>
+                                    <option value="swahili">Swahili</option>
+                                    <option value="english">English</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Whisper Model</label>
+                                <select id="clipper-model">
+                                    <option value="tiny">tiny (fastest)</option>
+                                    <option value="base" selected>base (balanced)</option>
+                                    <option value="small">small (more accurate)</option>
+                                    <option value="medium">medium (slow)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Clips to Render</label>
+                                <input type="number" id="clipper-count" value="3" min="1" max="10">
+                            </div>
+                            <div class="form-group">
+                                <label>Words / Caption Line</label>
+                                <input type="number" id="clipper-words" value="4" min="2" max="8">
+                            </div>
+                            <div class="form-group">
+                                <label>Min Length (sec)</label>
+                                <input type="number" id="clipper-min" value="20" min="10" max="120">
+                            </div>
+                            <div class="form-group">
+                                <label>Max Length (sec)</label>
+                                <input type="number" id="clipper-max" value="50" min="15" max="180">
+                            </div>
+                            <div class="form-group">
+                                <label>Crop Focus (9:16)</label>
+                                <select id="clipper-crop">
+                                    <option value="center" selected>Center</option>
+                                    <option value="top">Top (speaker headroom)</option>
+                                    <option value="bottom">Bottom</option>
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Hashtag Niche (Social Kit)</label>
+                                <select id="clipper-niche">
+                                    <option value="gospel" selected>Gospel</option>
+                                    <option value="prayer">Prayer</option>
+                                    <option value="praise">Praise</option>
+                                    <option value="motivational">Motivational</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Caption Mood</label>
+                                <select id="clipper-mood">
+                                    <option value="peaceful" selected>Peaceful</option>
+                                    <option value="powerful">Powerful</option>
+                                    <option value="hopeful">Hopeful</option>
+                                    <option value="emotional">Emotional</option>
+                                    <option value="holy">Holy</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.4rem; display: flex; gap: 0.8rem; flex-wrap: wrap;">
+                            <button class="btn btn-secondary" id="clipper-analyze-btn" onclick="startClipperAnalyze()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="search"></i> 1 · Analyze Transcript
+                            </button>
+                            <button class="btn btn-primary" id="clipper-render-btn" onclick="renderClipperClips()" style="flex: 1; justify-content: center;">
+                                <i data-lucide="film"></i> 2 · Render Selected Clips
+                            </button>
+                        </div>
+
+                        <div id="clipper-analyze-panel" style="display: none; margin-top: 1.1rem;">
+                            <div class="progress-block" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span id="clipper-analyze-status" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">RUNNING</span>
+                                    <span id="clipper-analyze-pct" style="font-size: 0.85rem; font-weight: 700; color: var(--primary); font-family: var(--font-code);">0%</span>
+                                </div>
+                                <div class="progress-track" style="height: 9px; width: 100%; background: rgba(255, 255, 255, 0.06); border-radius: 99px; overflow: hidden;">
+                                    <div class="progress-bar-fill" id="clipper-analyze-bar" style="height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="clipper-render-panel" style="display: none; margin-top: 1.1rem;">
+                            <div class="progress-block" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span id="clipper-render-status" style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em;">RUNNING</span>
+                                    <span id="clipper-render-pct" style="font-size: 0.85rem; font-weight: 700; color: var(--accent-success); font-family: var(--font-code);">0%</span>
+                                </div>
+                                <div class="progress-track" style="height: 9px; width: 100%; background: rgba(255, 255, 255, 0.06); border-radius: 99px; overflow: hidden;">
+                                    <div class="progress-bar-fill" id="clipper-render-bar" style="height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, var(--accent-success), var(--secondary)); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Candidates / Outputs / Console -->
+                    <div class="glass-card" style="flex: 3; min-width: 340px;">
+                        <h4 style="font-family: var(--font-heading); margin-bottom: 0.9rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="list-checks" style="width: 17px; height: 17px; color: var(--secondary);"></i>
+                            Clip Candidates
+                            <span id="clipper-candidate-count" style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;"></span>
+                        </h4>
+                        <div id="clipper-candidates" style="max-height: 360px; overflow-y: auto;">
+                            <div style="font-size: 0.85rem; color: var(--text-muted); padding: 1.25rem; border: 1px dashed var(--border-subtle); border-radius: 10px; text-align: center;">
+                                Run <strong>Analyze Transcript</strong> to see scored clip moments here.
+                            </div>
+                        </div>
+
+                        <h4 style="font-family: var(--font-heading); margin: 1.4rem 0 0.9rem; font-size: 1.05rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="clapperboard" style="width: 17px; height: 17px; color: var(--accent-success);"></i>
+                            Rendered Clips
+                        </h4>
+                        <div id="clipper-outputs" style="max-height: 420px; overflow-y: auto;">
+                            <div id="clipper-output-list" style="font-size: 0.85rem; color: var(--text-muted); padding: 1.25rem; border: 1px dashed var(--border-subtle); border-radius: 10px; text-align: center;">
+                                No clips rendered yet.
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.2rem;">
+                            <div class="console-box" id="clipper-console">Clipper ready. Add a video, then Analyze → Render.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10. VOICE LAB (TTS Explorer Studio) -->
             <div id="tab-vlab" class="tab-section">
 
                 <!-- Filter Row -->

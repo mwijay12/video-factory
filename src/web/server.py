@@ -74,6 +74,14 @@ render_process = None
 current_render_log_path = None
 current_render_output_name = None
 
+# Longform clipper (sermons/podcasts → vertical shorts) job tracking
+CLIPPER_STATUS_PATH = Path(OUTPUT_DIR) / "temp" / "clipper_status.json"
+CLIPPER_SOURCE_DIR = Path(ASSETS_DIR) / "longform"
+CLIPPER_SOURCE_EXTS = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi"}
+clipper_process = None
+current_clipper_log_path = None
+current_clipper_job = None
+
 pipeline_process = None
 current_pipeline_log_path = None
 
@@ -1015,6 +1023,289 @@ def extract_render_telemetry(step_label: str, log_content: str):
 last_render_progress = 0
 
 # GET Render status
+# ────────────────────────────────────────────────────────────────
+# LONGFORM CLIPPER — sermons/podcasts → captioned vertical shorts
+# ────────────────────────────────────────────────────────────────
+import time
+
+
+def _clipper_read_status() -> Dict:
+    if not CLIPPER_STATUS_PATH.exists():
+        return {}
+    try:
+        return json.loads(CLIPPER_STATUS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _clipper_is_active() -> bool:
+    if clipper_process is None:
+        return False
+    return clipper_process.poll() is None
+
+
+def _clipper_log_tail(max_chars: int = 8000) -> str:
+    p = Path(current_clipper_log_path) if current_clipper_log_path else None
+    if p is None or not p.exists():
+        # Server restart / foreign job: fall back to newest clipper log on disk
+        temp_dir = Path("output/temp")
+        try:
+            logs = sorted(temp_dir.glob("clipper_log_*.log"),
+                          key=lambda x: x.stat().st_mtime, reverse=True)
+        except Exception:
+            logs = []
+        p = logs[0] if logs else None
+    if p is None or not p.exists():
+        return ""
+    try:
+        txt = p.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return ""
+    if len(txt) > max_chars:
+        txt = "…" + txt[-max_chars:]
+    return txt
+
+
+def _spawn_clipper_job(job: str, payload: Dict):
+    global clipper_process, current_clipper_log_path, current_clipper_job
+
+    if _clipper_is_active():
+        raise HTTPException(status_code=400, detail="A clipper job is already running")
+
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    temp_dir = Path("output/temp")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    payload_path = temp_dir / f"clipper_payload_{stamp}.json"
+    log_path = temp_dir / f"clipper_log_{stamp}.log"
+
+    try:
+        payload_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        log_path.write_text(f"Starting clipper {job} job...\n", encoding="utf-8")
+        # Seed status so the first poll never sees a stale previous result
+        CLIPPER_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CLIPPER_STATUS_PATH.write_text(json.dumps({
+            "job": job,
+            "status": "running",
+            "progress": 1,
+            "step": "Worker starting...",
+            "source": payload.get("source", ""),
+            "language": payload.get("language", "auto"),
+            "model": payload.get("model", "base"),
+            "duration": None,
+            "word_count": None,
+            "transcript_path": "",
+            "candidates": [],
+            "outputs": [],
+            "error": None,
+            "started_at": stamp,
+            "updated_at": stamp,
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to initialize clipper job files: {str(e)}")
+
+    cmd = [
+        sys.executable,
+        "src/scripts/clipper_worker.py",
+        "--job", job,
+        "--payload", str(payload_path),
+    ]
+
+    try:
+        sub_env = os.environ.copy()
+        sub_env["PYTHONIOENCODING"] = "utf-8"
+        sub_env["PYTHONUNBUFFERED"] = "1"
+        log_fh = open(str(log_path), "a", encoding="utf-8")
+        clipper_process = subprocess.Popen(
+            cmd,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            env=sub_env,
+        )
+        current_clipper_log_path = log_path
+        current_clipper_job = job
+    except Exception as e:
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to spawn clipper subprocess: {str(e)}")
+
+    return log_path
+
+
+@app.get("/api/clipper/sources")
+def clipper_sources():
+    from src.video.longform_clipper import list_source_videos
+    try:
+        items = list_source_videos()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"sources": items, "active": _clipper_is_active()}
+
+
+@app.post("/api/clipper/upload")
+async def clipper_upload(file: UploadFile = File(...)):
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in CLIPPER_SOURCE_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported video type '{suffix}'. "
+                   f"Supported: {', '.join(sorted(CLIPPER_SOURCE_EXTS))}",
+        )
+
+    CLIPPER_SOURCE_DIR.mkdir(parents=True, exist_ok=True)
+    safe_name = Path(file.filename).name.strip() or "video.mp4"
+    safe_name = re.sub(r"[^\w.\- ()]", "_", safe_name)
+    dest = CLIPPER_SOURCE_DIR / safe_name
+
+    try:
+        with open(dest, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save video: {str(e)}")
+
+    return {
+        "message": f"Uploaded {safe_name}",
+        "name": safe_name,
+        "size_mb": round(dest.stat().st_size / (1024 * 1024), 2),
+    }
+
+
+def _clipper_validate_source(source) -> str:
+    if not source:
+        raise HTTPException(status_code=400, detail="source is required")
+    from src.video.longform_clipper import resolve_video
+    try:
+        resolve_video(source)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid source: {str(e)}")
+    return source
+
+
+@app.post("/api/clipper/analyze")
+def clipper_analyze(payload: Dict):
+    if _clipper_is_active():
+        raise HTTPException(status_code=400, detail="A clipper job is already running")
+
+    source = _clipper_validate_source(payload.get("source"))
+    try:
+        min_dur = float(payload.get("min_dur", 20))
+        max_dur = float(payload.get("max_dur", 50))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="min_dur/max_dur must be numbers")
+    if max_dur <= min_dur:
+        raise HTTPException(status_code=400, detail="max_dur must be greater than min_dur")
+
+    _spawn_clipper_job("analyze", {
+        "source": source,
+        "language": payload.get("language", "auto"),
+        "model": payload.get("model", "base"),
+        "min_dur": min_dur,
+        "max_dur": max_dur,
+    })
+    return {"message": "Clipper analysis started", "job": "analyze"}
+
+
+@app.post("/api/clipper/render")
+def clipper_render(payload: Dict):
+    if _clipper_is_active():
+        raise HTTPException(status_code=400, detail="A clipper job is already running")
+
+    source = _clipper_validate_source(payload.get("source"))
+    try:
+        min_dur = float(payload.get("min_dur", 20))
+        max_dur = float(payload.get("max_dur", 50))
+        count = int(payload.get("count", 3))
+        words_per_line = int(payload.get("words_per_line", 4))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400,
+                            detail="count / words_per_line / min_dur / max_dur must be numbers")
+    if max_dur <= min_dur:
+        raise HTTPException(status_code=400, detail="max_dur must be greater than min_dur")
+
+    selected = payload.get("selected") or None
+    if selected is not None:
+        if not isinstance(selected, list):
+            raise HTTPException(
+                status_code=400,
+                detail="selected must be a list of time windows or ranks")
+        norm = []
+        for item in selected:
+            if isinstance(item, dict):
+                try:
+                    norm.append({"start": float(item["start"]),
+                                 "end": float(item["end"])})
+                except (KeyError, TypeError, ValueError):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="selected windows need numeric start/end")
+            else:
+                try:
+                    norm.append(int(item))
+                except (TypeError, ValueError):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="selected must contain integers or {start,end} objects")
+        selected = norm or None
+
+    _spawn_clipper_job("render", {
+        "source": source,
+        "language": payload.get("language", "auto"),
+        "model": payload.get("model", "base"),
+        "min_dur": min_dur,
+        "max_dur": max_dur,
+        "count": max(1, min(10, count)),
+        "words_per_line": max(1, min(8, words_per_line)),
+        "crop": payload.get("crop", "center"),
+        "niche": payload.get("niche", "gospel"),
+        "mood": payload.get("mood", "peaceful"),
+        "selected": selected,
+    })
+    return {"message": "Clipper render started", "job": "render"}
+
+
+@app.get("/api/clipper/status")
+def clipper_status():
+    st = _clipper_read_status()
+    alive = _clipper_is_active()
+    status = st.get("status", "idle")
+    error = st.get("error")
+
+    if alive:
+        status = "running"
+    elif status == "running":
+        # Worker never finalized: process died or server restarted mid-job
+        status = "failed"
+        error = error or "Clipper worker exited unexpectedly — check the log."
+
+    progress = 0 if status == "idle" else int(st.get("progress") or 0)
+    if status == "completed":
+        progress = 100
+
+    return {
+        "status": status,
+        "job": st.get("job") or current_clipper_job or "",
+        "progress": progress,
+        "step": st.get("step", ""),
+        "log": _clipper_log_tail(),
+        "candidates": st.get("candidates", []),
+        "outputs": st.get("outputs", []),
+        "error": error,
+        "source": st.get("source", ""),
+        "language": st.get("language", ""),
+        "duration": st.get("duration"),
+        "transcript_path": st.get("transcript_path", ""),
+        "active": alive,
+    }
+
+
 @app.get("/api/render/status")
 def get_render_status():
     global render_process, current_render_log_path, current_render_output_name, last_render_progress

@@ -375,6 +375,11 @@ def get_font(size=60, bold=True):
     candidates = []
     if bold:
         candidates = [
+            # Linux / headless servers (Docker, CI)
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+            # Windows
             "C:/Windows/Fonts/arialbd.ttf",
             "C:/Windows/Fonts/calibrib.ttf",
             "C:/Windows/Fonts/verdanab.ttf",
@@ -382,6 +387,11 @@ def get_font(size=60, bold=True):
         ]
     else:
         candidates = [
+            # Linux / headless servers (Docker, CI)
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+            # Windows
             "C:/Windows/Fonts/arial.ttf",
             "C:/Windows/Fonts/calibri.ttf",
             "C:/Windows/Fonts/verdana.ttf",

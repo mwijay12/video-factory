@@ -92,6 +92,8 @@ async def run_daily_pipeline(force=False, log_callback=None):
     log("\n[Scheduler] Step 3: Loading stock media items...")
     subs_len = len(tts_result["subtitles"]) if tts_result and "subtitles" in tts_result else 10
     needed_clips = max(35, subs_len * 3)
+    manager = MediaManager(niche=NICHE)
+    manager.scan()
     media_items = manager.pick_media_for_reel(count=needed_clips, script=script)
     if not media_items:
         log("  Error: No stock media items retrieved.")
