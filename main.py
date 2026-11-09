@@ -437,6 +437,7 @@ Examples:
   python main.py --time-based                 Auto pick niche by time
   python main.py --niche bedtime_prayer       Whisper bedtime mode
   python main.py --list                       List all scripts
+  python main.py --clip-longform sermon.mp4   Clip a long video into 3 shorts
         '''
     )
     p.add_argument('--niche', '-n', type=str, default=NICHE,
@@ -485,6 +486,22 @@ Examples:
                    help='Type of media to download from stock API')
     p.add_argument('--download-music', type=str, default=None,
                    help='Download copyright-free background music/beats from YouTube by niche or query')
+    p.add_argument('--clip-longform', type=str, default=None,
+                   help='Clip a long video (sermon/podcast) into vertical shorts. Pass a path or filename in assets/longform/')
+    p.add_argument('--clips', type=int, default=3,
+                   help='Number of highlight clips to render in longform mode')
+    p.add_argument('--clip-min', type=float, default=20,
+                   help='Minimum clip duration in seconds (longform mode)')
+    p.add_argument('--clip-max', type=float, default=60,
+                   help='Maximum clip duration in seconds (longform mode)')
+    p.add_argument('--clip-model', type=str, default='base',
+                   choices=['tiny', 'base', 'small', 'medium'],
+                   help='Whisper model size for longform transcription')
+    p.add_argument('--clip-crop', type=str, default='center',
+                   choices=['center', 'left', 'right', 'top', 'bottom'],
+                   help='Crop focus when reframing longform video to vertical')
+    p.add_argument('--clip-list', action='store_true',
+                   help='List longform source videos in assets/longform/')
     return p.parse_args()
 
 
@@ -506,6 +523,54 @@ async def run():
     if args.list_songs:
         from src.audio.song_picker import list_songs_pretty
         list_songs_pretty()
+        return
+
+    if args.clip_list:
+        from src.video.longform_clipper import list_source_videos
+        videos = list_source_videos()
+        if not videos:
+            print('No longform videos found. Add files to assets/longform/')
+            return
+        print('')
+        print('=' * 62)
+        print('  LONGFORM SOURCE VIDEOS')
+        print('=' * 62)
+        for video in videos:
+            print(f"  {video['name']}  ({video['size_mb']} MB)")
+        print('=' * 62)
+        return
+
+    if args.clip_longform:
+        from src.video.longform_clipper import analyze_video, render_selected_clips
+        print('')
+        print('=' * 62)
+        print('  LONGFORM CLIPPER')
+        print('=' * 62)
+        analysis = analyze_video(
+            video_path=args.clip_longform,
+            language=args.lang,
+            model_size=args.clip_model,
+            min_duration=args.clip_min,
+            max_duration=args.clip_max,
+            count=args.clips,
+            words_per_line=args.words_per_line,
+            log=print,
+        )
+        candidates = analysis.get('candidates', [])
+        print('')
+        print(f'  Top {len(candidates)} highlights:')
+        for index, candidate in enumerate(candidates, 1):
+            print(f"    {index}. [{candidate['start']:.1f}s - {candidate['end']:.1f}s] {candidate['title']}")
+        print('')
+        render_selected_clips(
+            video_path=analysis['video_path'],
+            clips=candidates[:args.clips],
+            crop_position=args.clip_crop,
+            mood=args.mood or 'cinematic',
+            niche=args.niche,
+            language=args.lang,
+            log=print,
+        )
         return
 
     if args.download_pinterest:

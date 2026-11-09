@@ -448,6 +448,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadSettings();
             } else if (tabId === 'tts' || tabId === 'vlab') {
                 initExplorerTTS();
+            } else if (tabId === 'clipper') {
+                loadClipperSources();
             }
             
             const targetTab = document.getElementById(`tab-${tabId}`);
@@ -461,6 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     'downloader': 'Downloader Hub',
                     'composer': 'Composer Timeline',
                     'lyrics-mode': 'Song to Reel Studio',
+                    'clipper': 'Longform Clipper',
                     'publisher': 'Publisher Pipeline',
                     'scheduler': 'Scheduler Queue',
                     'trends': 'Trending Finder',
@@ -4265,4 +4268,323 @@ window.vlabLoadVoices = vlabLoadVoices;
 window.vlabFilterVoices = vlabFilterVoices;
 window.vlabPreviewVoice = vlabPreviewVoice;
 window.vlabUseThisVoice = vlabUseThisVoice;
+
+// ================================================================
+// LONGFORM CLIPPER
+// ================================================================
+let clipperCandidates = [];
+let clipperPollTimer = null;
+let clipperAnalyzedSource = "";
+let clipperMode = "";
+
+function clipperEscape(value) {
+    return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function clipperFmt(sec) {
+    const total = Math.max(0, Math.round(Number(sec) || 0));
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+async function loadClipperSources() {
+    const select = document.getElementById("clipper-source");
+    if (!select) return;
+    const current = select.value;
+    try {
+        const res = await fetch("/api/clipper/sources");
+        const data = await res.json();
+        const videos = data.videos || [];
+        select.innerHTML = "";
+        if (!videos.length) {
+            select.innerHTML = '<option value="">-- No longform videos found --</option>';
+            return;
+        }
+        videos.forEach(video => {
+            const option = document.createElement("option");
+            option.value = video.path;
+            option.textContent = `${video.name} (${video.size_mb} MB)`;
+            select.appendChild(option);
+        });
+        if (current && Array.from(select.options).some(o => o.value === current)) {
+            select.value = current;
+        }
+    } catch (e) {
+        console.error("Failed to load longform videos", e);
+    }
+}
+
+async function uploadClipperVideo() {
+    const input = document.getElementById("clipper-upload-file");
+    const status = document.getElementById("clipper-upload-status");
+    if (!input || !input.files || !input.files.length) return;
+
+    const formData = new FormData();
+    formData.append("video", input.files[0]);
+    if (status) {
+        status.textContent = "Uploading...";
+        status.style.color = "var(--primary)";
+    }
+
+    try {
+        const res = await fetch("/api/clipper/upload", { method: "POST", body: formData });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Upload failed");
+        }
+        const data = await res.json();
+        if (status) {
+            status.textContent = `Uploaded: ${data.name}`;
+            status.style.color = "var(--accent-success)";
+        }
+        await loadClipperSources();
+        const select = document.getElementById("clipper-source");
+        if (select) select.value = data.path;
+    } catch (e) {
+        if (status) {
+            status.textContent = "Upload failed";
+            status.style.color = "var(--accent-error)";
+        }
+        alert("Long video upload failed: " + e.message);
+    } finally {
+        input.value = "";
+    }
+}
+
+function clipperSetProgress(prefix, percent, label) {
+    const bar = document.getElementById(`clipper-${prefix}-bar`);
+    const pct = document.getElementById(`clipper-${prefix}-pct`);
+    const status = document.getElementById(`clipper-${prefix}-status`);
+    const value = Math.max(0, Math.min(100, Number(percent) || 0));
+    if (bar) bar.style.width = `${value}%`;
+    if (pct) pct.textContent = `${value}%`;
+    if (status && label) status.textContent = label;
+}
+
+async function startClipperAnalyze() {
+    const source = document.getElementById("clipper-source")?.value;
+    if (!source) {
+        alert("Select or upload a long video first.");
+        return;
+    }
+
+    const minDuration = Number(document.getElementById("clipper-min")?.value || 20);
+    const maxDuration = Number(document.getElementById("clipper-max")?.value || 60);
+    if (maxDuration <= minDuration) {
+        alert("Max clip duration must be greater than min duration.");
+        return;
+    }
+
+    const payload = {
+        video_path: source,
+        language: document.getElementById("clipper-language")?.value || "auto",
+        model_size: document.getElementById("clipper-model")?.value || "base",
+        count: Number(document.getElementById("clipper-count")?.value || 3),
+        words_per_line: Number(document.getElementById("clipper-words")?.value || 4),
+        min_duration: minDuration,
+        max_duration: maxDuration
+    };
+
+    const button = document.getElementById("clipper-analyze-btn");
+    if (button) button.disabled = true;
+    document.getElementById("clipper-analyze-panel").style.display = "block";
+    document.getElementById("clipper-render-btn").disabled = true;
+    document.getElementById("clipper-outputs").style.display = "none";
+    const consoleBox = document.getElementById("clipper-console");
+    if (consoleBox) consoleBox.textContent = "Launching Whisper analysis...";
+    clipperSetProgress("analyze", 0, "ANALYZING");
+
+    try {
+        const res = await fetch("/api/clipper/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Analysis failed to start");
+        }
+        clipperAnalyzedSource = source;
+        clipperCandidates = [];
+        startClipperPolling("analyze");
+    } catch (e) {
+        if (button) button.disabled = false;
+        alert("Could not start analysis: " + e.message);
+    }
+}
+
+function startClipperPolling(mode) {
+    clipperMode = mode;
+    if (clipperPollTimer) clearInterval(clipperPollTimer);
+    clipperPollTimer = setInterval(pollClipperStatus, 1500);
+    pollClipperStatus();
+}
+
+async function pollClipperStatus() {
+    try {
+        const res = await fetch("/api/clipper/status");
+        const data = await res.json();
+        const isAnalyze = clipperMode === "analyze";
+        const prefix = isAnalyze ? "analyze" : "render";
+        const label = data.status === "running" || data.status === "starting"
+            ? (data.stage || "WORKING").toUpperCase()
+            : data.status.toUpperCase();
+
+        clipperSetProgress(prefix, data.progress || 0, label);
+
+        if (isAnalyze) {
+            const consoleBox = document.getElementById("clipper-console");
+            if (consoleBox && data.log) consoleBox.textContent = data.log;
+        }
+
+        if (data.status === "done") {
+            clearInterval(clipperPollTimer);
+            clipperPollTimer = null;
+            if (isAnalyze) {
+                clipperCandidates = data.result?.candidates || [];
+                renderClipperCandidates(clipperCandidates);
+                document.getElementById("clipper-render-btn").disabled = clipperCandidates.length === 0;
+            } else {
+                renderClipperOutputs(data.result?.clips || []);
+                document.getElementById("clipper-render-btn").disabled = false;
+            }
+            const button = document.getElementById("clipper-analyze-btn");
+            if (button) button.disabled = false;
+        } else if (data.status === "failed") {
+            clearInterval(clipperPollTimer);
+            clipperPollTimer = null;
+            const button = document.getElementById("clipper-analyze-btn");
+            if (button) button.disabled = false;
+            const renderButton = document.getElementById("clipper-render-btn");
+            if (renderButton) renderButton.disabled = false;
+            alert("Clipper job failed: " + (data.error || "Unknown error"));
+        }
+    } catch (e) {
+        console.error("Clipper status poll failed", e);
+    }
+}
+
+function renderClipperCandidates(candidates) {
+    const container = document.getElementById("clipper-candidates");
+    const count = document.getElementById("clipper-candidate-count");
+    if (!container) return;
+    if (count) count.textContent = `${candidates.length} candidates`;
+
+    if (!candidates.length) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:2rem 0;">No highlights found. Try a longer video or smaller minimum duration.</div>';
+        return;
+    }
+
+    container.innerHTML = candidates.map((candidate, index) => `
+        <div class="clipper-card" data-index="${index}" style="padding: 1rem; background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border-subtle); border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" class="clipper-pick" checked style="width: 16px; height: 16px; accent-color: var(--primary);">
+                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--secondary); font-family: var(--font-code);">
+                        ${clipperFmt(candidate.start)} - ${clipperFmt(candidate.end)} (${Math.round(candidate.duration)}s)
+                    </span>
+                </label>
+                <span style="font-size: 0.7rem; color: var(--text-muted);">score ${Number(candidate.score || 0).toFixed(1)}</span>
+            </div>
+            <input type="text" class="clipper-title" value="${clipperEscape(candidate.title)}" style="width: 100%; margin-bottom: 0.5rem; padding: 0.55rem 0.7rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: 8px; color: var(--text-main); font-weight: 600;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin: 0;">${clipperEscape(candidate.text)}</p>
+        </div>
+    `).join("");
+
+    if (typeof lucide !== "undefined") lucide.createIcons();
+}
+
+async function renderClipperClips() {
+    if (!clipperAnalyzedSource) {
+        alert("Run analysis first.");
+        return;
+    }
+
+    const clips = [];
+    document.querySelectorAll("#clipper-candidates .clipper-card").forEach(card => {
+        const checkbox = card.querySelector(".clipper-pick");
+        if (!checkbox || !checkbox.checked) return;
+        const index = Number(card.getAttribute("data-index"));
+        const candidate = clipperCandidates[index];
+        if (!candidate) return;
+        const titleInput = card.querySelector(".clipper-title");
+        clips.push({
+            start: candidate.start,
+            end: candidate.end,
+            title: titleInput ? titleInput.value : candidate.title,
+            hook: candidate.hook || candidate.title,
+            text: candidate.text,
+            subtitles: candidate.subtitles || []
+        });
+    });
+
+    if (!clips.length) {
+        alert("Select at least one clip to render.");
+        return;
+    }
+
+    const button = document.getElementById("clipper-render-btn");
+    if (button) button.disabled = true;
+    document.getElementById("clipper-render-panel").style.display = "block";
+    clipperSetProgress("render", 0, "RENDERING");
+
+    const payload = {
+        video_path: clipperAnalyzedSource,
+        clips: clips,
+        aspect_ratio: "9:16",
+        crop_position: document.getElementById("clipper-crop")?.value || "center",
+        mood: document.getElementById("clipper-mood")?.value || "cinematic",
+        niche: document.getElementById("clipper-niche")?.value || "gospel",
+        language: document.getElementById("clipper-language")?.value || "english"
+    };
+
+    try {
+        const res = await fetch("/api/clipper/render", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Render failed to start");
+        }
+        startClipperPolling("render");
+    } catch (e) {
+        if (button) button.disabled = false;
+        alert("Could not start rendering: " + e.message);
+    }
+}
+
+function renderClipperOutputs(clips) {
+    const container = document.getElementById("clipper-outputs");
+    const list = document.getElementById("clipper-output-list");
+    if (!container || !list) return;
+    container.style.display = "block";
+
+    if (!clips.length) {
+        list.innerHTML = '<div style="font-size:0.85rem;color:var(--text-muted);">No clips were rendered.</div>';
+        return;
+    }
+
+    list.innerHTML = clips.map(clip => `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.85rem; background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border-subtle); border-radius: 10px;">
+            <div style="min-width: 0;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${clipperEscape(clip.title)}</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">${clipperEscape(clip.name)}</div>
+            </div>
+            <a class="btn btn-secondary" href="${clip.url}" target="_blank" rel="noopener" style="padding: 0.4rem 0.7rem; font-size: 0.75rem; height: auto; text-decoration: none; white-space: nowrap;">Preview</a>
+        </div>
+    `).join("");
+}
+
+window.loadClipperSources = loadClipperSources;
+window.uploadClipperVideo = uploadClipperVideo;
+window.startClipperAnalyze = startClipperAnalyze;
+window.renderClipperClips = renderClipperClips;
 

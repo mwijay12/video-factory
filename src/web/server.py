@@ -1100,6 +1100,180 @@ def get_render_status():
         **telemetry
     }
 
+# ============================================================
+# LONGFORM CLIPPER (long video -> vertical shorts)
+# ============================================================
+clipper_process = None
+current_clipper_status_path = None
+current_clipper_log_path = None
+
+CLIPPER_STATUS_PATH = Path(OUTPUT_DIR) / "temp" / "clipper_status.json"
+
+
+def _clipper_is_active():
+    global clipper_process
+    if clipper_process is None:
+        return False
+    if clipper_process.poll() is None:
+        return True
+    clipper_process = None
+    return False
+
+
+def _spawn_clipper_job(job, payload):
+    global clipper_process, current_clipper_status_path, current_clipper_log_path
+
+    if _clipper_is_active():
+        raise HTTPException(status_code=400, detail="A clipper job is already running")
+
+    video_path = payload.get("video_path")
+    if not video_path:
+        raise HTTPException(status_code=400, detail="video_path is required")
+
+    import time
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    temp_dir = Path(OUTPUT_DIR) / "temp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+
+    status_path = CLIPPER_STATUS_PATH
+    log_path = temp_dir / f"clipper_{job}_{stamp}.log"
+    payload_path = temp_dir / f"clipper_{job}_{stamp}.json"
+
+    job_payload = dict(payload)
+    job_payload["status_path"] = str(status_path)
+    job_payload["log_path"] = str(log_path)
+
+    try:
+        payload_path.write_text(json.dumps(job_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        log_path.write_text(f"Starting longform clipper job ({job})...\n", encoding="utf-8")
+        status_path.write_text(json.dumps({
+            "job": job,
+            "status": "starting",
+            "progress": 0,
+            "stage": "Launching worker...",
+            "result": None,
+            "error": None,
+        }, indent=2), encoding="utf-8")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to prepare clipper job: {exc}")
+
+    cmd = [
+        sys.executable,
+        "src/scripts/clipper_worker.py",
+        "--job",
+        job,
+        "--payload",
+        str(payload_path),
+    ]
+
+    try:
+        sub_env = os.environ.copy()
+        sub_env["PYTHONIOENCODING"] = "utf-8"
+        sub_env["PYTHONUNBUFFERED"] = "1"
+        clipper_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=sub_env,
+        )
+        current_clipper_status_path = status_path
+        current_clipper_log_path = log_path
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to spawn clipper worker: {exc}")
+
+    return {"message": f"Clipper {job} job started", "job": job, "job_id": stamp}
+
+
+@app.get("/api/clipper/sources")
+def clipper_sources():
+    from src.video.longform_clipper import list_source_videos
+    return {"videos": list_source_videos()}
+
+
+@app.post("/api/clipper/upload")
+async def clipper_upload(video: UploadFile = File(...)):
+    from src.video.longform_clipper import LONGFORM_DIR, VIDEO_EXTENSIONS, ensure_dirs
+
+    ensure_dirs()
+    original = Path(video.filename or "longform.mp4").name
+    extension = Path(original).suffix.lower()
+    if extension not in VIDEO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported video type: {extension}")
+
+    import time
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(original).stem)[:60] or "longform"
+    destination = LONGFORM_DIR / f"{int(time.time())}_{safe_stem}{extension}"
+
+    try:
+        with open(destination, "wb") as handle:
+            while True:
+                chunk = await video.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+    except Exception as exc:
+        try:
+            destination.unlink()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Failed to save video: {exc}")
+
+    return {
+        "name": destination.name,
+        "path": str(destination),
+        "size_mb": round(destination.stat().st_size / (1024 * 1024), 2),
+    }
+
+
+@app.post("/api/clipper/analyze")
+def clipper_analyze(payload: Dict):
+    return _spawn_clipper_job("analyze", payload)
+
+
+@app.post("/api/clipper/render")
+def clipper_render(payload: Dict):
+    if not payload.get("clips"):
+        raise HTTPException(status_code=400, detail="clips are required")
+    return _spawn_clipper_job("render", payload)
+
+
+@app.get("/api/clipper/status")
+def clipper_status():
+    global clipper_process, current_clipper_status_path, current_clipper_log_path
+
+    status = {
+        "status": "idle",
+        "progress": 0,
+        "stage": "",
+        "result": None,
+        "error": None,
+        "log": "",
+    }
+
+    if current_clipper_status_path and Path(current_clipper_status_path).exists():
+        try:
+            status.update(json.loads(Path(current_clipper_status_path).read_text(encoding="utf-8")))
+        except Exception as exc:
+            status["error"] = f"Could not read clipper status: {exc}"
+
+    running = clipper_process is not None and clipper_process.poll() is None
+    status["process_running"] = running
+
+    log_tail = ""
+    if current_clipper_log_path and Path(current_clipper_log_path).exists():
+        try:
+            lines = Path(current_clipper_log_path).read_text(encoding="utf-8").splitlines()
+            log_tail = "\n".join(lines[-160:])
+        except Exception:
+            pass
+    status["log"] = log_tail
+
+    if not running and status.get("status") in ("running", "starting"):
+        status["status"] = "failed"
+        status["error"] = status.get("error") or "Clipper worker stopped unexpectedly. Check the log."
+
+    return status
+
 # API to get pipeline log history
 @app.get("/api/pipeline/log")
 def get_pipeline_log():

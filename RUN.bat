@@ -83,10 +83,14 @@ echo   [34] Open Songs Folder
 echo   [35] Web Control Dashboard
 echo   [36] Run Auto-Publishing Pipeline
 echo.
+echo   LONGFORM CLIPPER:
+echo.
+echo   [37] Clip Long Video          [Sermon/podcast -^> shorts]
+echo.
 echo   [0]  Exit
 echo.
 echo ================================================================
-set /p choice="  Enter your choice [0-36]: "
+set /p choice="  Enter your choice [0-37]: "
 
 set PYTHONPATH=%CD%
 
@@ -126,12 +130,30 @@ if "%choice%"=="33" explorer output\videos
 if "%choice%"=="34" explorer assets\songs
 if "%choice%"=="35" goto WEB_DASHBOARD
 if "%choice%"=="36" goto RUN_PUBLISHER
+if "%choice%"=="37" goto CLIP_LONGFORM
 if "%choice%"=="0"  exit
 
 echo.
 echo ================================================================
 echo                     DONE!
 echo ================================================================
+echo.
+pause
+goto MENU
+
+:CLIP_LONGFORM
+cls
+echo ================================================================
+echo             LONGFORM CLIPPER (LONG VIDEO - SHORTS)
+echo ================================================================
+echo.
+"%PY%" main.py --clip-list
+echo.
+set /p clipfile="Enter video file name or full path: "
+if "%clipfile%"=="" goto MENU
+set /p clipcount="How many clips? [3]: "
+if "%clipcount%"=="" set clipcount=3
+"%PY%" main.py --clip-longform "%clipfile%" --clips %clipcount%
 echo.
 pause
 goto MENU

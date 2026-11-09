@@ -49,6 +49,7 @@ output/videos/
 output/subtitles/
 output/lyrics/
 output/temp/
+output/longform/
 output/*.db
 *.db
 

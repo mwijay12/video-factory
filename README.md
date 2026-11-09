@@ -71,6 +71,7 @@ Unlike generic cloud-based video generators that charge high monthly subscriptio
 * **SQLite Topic Deduplication & Resiliency**: Stores every generated script topic in `output/videofactory.db` so VideoFactory never generates repeated or duplicate topics across runs.
 * **Puter.js & OpenRouter Fallback Chains**: Seamless multi-provider script and speech synthesis fallback covering Groq, Gemini, OpenRouter, and Puter AI.
 * **100% Stock Video Pacing (Max 2.5s Cuts)**: Song to Reel engine breaks long segments into fast 1.5s - 2.5s video sub-cuts with random start offsets.
+* **Longform Clipper (Sermon/Podcast to Shorts)**: Upload a long video, transcribe it locally with faster-whisper, score highlight windows using hooks, questions, speech energy, and pace, then render 1080x1920 clips with burned-in captions and a ready-to-post social kit (title, caption, hashtags).
 * **PyDub Dynamic RMS Audio Ducking**: Monitors vocal track RMS amplitude in 100ms chunks and attenuates background music by -15dB during active speech.
 
 #### 🟡 Partially Functional Features
@@ -84,7 +85,7 @@ Unlike generic cloud-based video generators that charge high monthly subscriptio
 * **Web-Based Analytics Dashboard**: Scrapes social studio views, likes, and shares to plot performance charts.
 
 #### ❌ Tried and Abandoned Features
-* **Local Whisper Lyrics Extraction**: Attempted to use local `faster-whisper` models to transcribe song lyrics on the developer's computer. It was **abandoned** because loading the AI models consumed too much RAM (over 4GB) and crashed systems without dedicated NVIDIA GPUs. The project transitioned to remote API options or pre-aligned SRT templates.
+* **Local Whisper Lyrics Extraction**: Attempted to use local `faster-whisper` models to transcribe song lyrics on the developer's computer. It was **abandoned** because loading the AI models consumed too much RAM (over 4GB) and crashed systems without dedicated NVIDIA GPUs. The project transitioned to remote API options or pre-aligned SRT templates. (The Longform Clipper now reuses `faster-whisper` for speech, with `tiny`/`base` defaults to keep memory lower.)
 
 ---
 
@@ -199,6 +200,7 @@ VideoFactory/
 │   │
 │   ├── scripts/              # Workflow automation and background workers
 │   │   ├── ai_generator.py   # AI prompt builder and API request handler
+│   │   ├── clipper_worker.py # Subprocess runner for longform analysis and clip rendering
 │   │   ├── gospel_script.py  # Static local script templates manager (Fallback database)
 │   │   ├── render_worker.py  # Subprocess wrapper that executes headless rendering runs
 │   │   ├── scheduler.py      # Automated daily generator and posting orchestrator
@@ -210,6 +212,7 @@ VideoFactory/
 │   │   └── uploader.py       # Playwright browser automation uploader for social platforms
 │   │
 │   ├── video/                # Media rendering and compositing engine
+│   │   ├── longform_clipper.py # Longform transcription, highlight scoring, and 9:16 clip renderer
 │   │   └── video_engine.py   # MoviePy compositor, subtitle renderer, Ken Burns animator
 │   │
 │   └── web/                  # FastAPI web server and UI files
@@ -222,6 +225,7 @@ VideoFactory/
 │
 ├── assets/                   # Project Static Assets (User Sourced)
 │   ├── hooks/                # Swoosh sound effects used in hook transitions
+│   ├── longform/             # Uploaded longform source videos (created on demand)
 │   ├── music/                # Background soundtracks categorized by niche subfolders
 │   ├── stock/                # B-roll photos/videos categorized by niche subfolders
 │   │   └── pinterest/
@@ -231,6 +235,7 @@ VideoFactory/
 │
 └── output/                   # Compiler Output Targets
     ├── audio/                # Compiled voice mp3 tracks
+    ├── longform/             # Longform transcripts and analysis JSON
     ├── subtitles/            # Output subtitle JSON timing tracks
     ├── videos/               # Final rendered 1080x1920 MP4 videos
     ├── .topic_history.json   # History database tracking processed script topics
@@ -349,6 +354,7 @@ The web dashboard is the most user-friendly way to manage settings and render vi
   ```
 * **Access**: Open your browser and navigate to `http://localhost:8000`.
 * **Actions**: You can generate AI scripts, preview TTS voices, trigger manual stock downloads, configure settings, and watch rendering log outputs in real-time.
+* **Longform Clipper**: Open the **Longform Clipper** tab, upload a long video (MP4/MOV/MKV/WEBM), pick the language, Whisper model, target clip length, and crop focus, then click **Analyze**. Review the scored highlights, edit titles, and render the selected clips. Results land in `output/videos/` with a matching `_social_kit.json`/`.txt` (title, caption, hashtags). The first run downloads the chosen Whisper model.
 
 ---
 
@@ -391,6 +397,15 @@ For power users, [main.py](main.py) provides a direct interface to trigger gener
   ```cmd
   python main.py --batch 5 --niche motivational --ai --viral
   ```
+
+#### Example D: Clip a Long Sermon or Podcast into Shorts
+* **Action**: Transcribes a long video locally, picks the strongest highlight windows, and renders vertical clips with burned-in captions. Use the `longform` folder (`assets/longform/`) or pass a full path.
+* **Command**:
+  ```cmd
+  python main.py --clip-longform sermon.mp4 --clips 3 --clip-min 20 --clip-max 60 --clip-model base --clip-crop center
+  ```
+* **Output**: `output/videos/clip_<title>_<timestamp>.mp4`, plus a `_social_kit.json` and `_social_kit.txt` with captions and hashtags.
+* **Tips**: Start with the `tiny` or `base` model on low-RAM machines. Use `--clip-list` to see videos already in `assets/longform/`, and `--clip-crop left|center|right|top|bottom` to choose the vertical framing.
 
 ---
 
