@@ -63,6 +63,7 @@ Unlike generic cloud-based video generators that charge high monthly subscriptio
 | **Cinematic Video Compositor** | 🟢 Fully Working | Trims, crops, color-grades, zooms, and overlays subtitles on media clips. | MoviePy, Pillow, NumPy |
 | **Audio Ducking Mixer** | 🟢 Fully Working | Fades background music down when narrator speaks using RMS signal monitoring. | PyDub, audioop-lts |
 | **Glassmorphic Web Dashboard** | 🟢 Fully Working | Admin panel to configure settings, generate scripts, preview audio, and render. | FastAPI, Vanilla JS, Lucide |
+| **Longform Clipper** | 🟢 Fully Working | Transcribes sermons/podcasts, scores hook-worthy moments, and renders 1080x1920 captioned shorts with social kits. | faster-whisper, FFmpeg, MoviePy |
 
 ### Features Status Breakdown
 
@@ -72,6 +73,7 @@ Unlike generic cloud-based video generators that charge high monthly subscriptio
 * **Puter.js & OpenRouter Fallback Chains**: Seamless multi-provider script and speech synthesis fallback covering Groq, Gemini, OpenRouter, and Puter AI.
 * **100% Stock Video Pacing (Max 2.5s Cuts)**: Song to Reel engine breaks long segments into fast 1.5s - 2.5s video sub-cuts with random start offsets.
 * **PyDub Dynamic RMS Audio Ducking**: Monitors vocal track RMS amplitude in 100ms chunks and attenuates background music by -15dB during active speech.
+* **Longform → Vertical Shorts Clipper**: Drops a sermon/podcast into `assets/longform/` (or uploads from the dashboard), then analyzes it with word-level Whisper timestamps, scores natural clip windows (EN/SW hook keywords, questions, numbers, word-density, energy), and renders reframed 9:16 shorts with grouped captions plus a copy-paste caption/hashtag kit. Works from the **Longform Clipper** dashboard tab or `python main.py --clip-longform`.
 
 #### 🟡 Partially Functional Features
 * **Puter AI TTS Integration**: Works, but since the system's default voice configurations are Edge-TTS neural names, calling Puter TTS without selecting an OpenAI voice results in a silent fallback to the generic `alloy` voice.
@@ -392,6 +394,16 @@ For power users, [main.py](main.py) provides a direct interface to trigger gener
   python main.py --batch 5 --niche motivational --ai --viral
   ```
 
+#### Example D: Clip a Sermon/Podcast into Vertical Shorts
+* **Action**: Analyzes a longform video (from `assets/longform/`), scores the best hook-worthy moments, and renders the top clips as captioned 1080x1920 shorts with a social caption kit.
+* **Commands**:
+  ```cmd
+  python main.py --clip-list                       :: list available longform sources
+  python main.py --clip-longform                   :: clip the newest source → 3 shorts
+  python main.py --clip-longform sermon.mp4 --clips 5 --clip-crop top
+  ```
+* **Output**: `output/videos/clip_<title>_<stamp>.mp4` plus `*_social_kit.txt` / `*_social_kit.json` companions.
+
 ---
 
 ### 📡 3. FastAPI REST Endpoints
@@ -446,6 +458,21 @@ The web interface communicates with FastAPI via REST endpoints:
   ```json
   {
     "message": "Download started in the background"
+  }
+  ```
+
+#### C. Longform Clipper (sermons/podcasts → vertical shorts)
+* **Endpoints**:
+  * `GET  /api/clipper/sources` — list videos in `assets/longform/` (+ transcript status)
+  * `POST /api/clipper/upload` — upload a long video (multipart `file`)
+  * `POST /api/clipper/analyze` — `{"source","language","model","min_dur","max_dur"}` → Whisper analysis + scored candidates
+  * `POST /api/clipper/render` — same params plus `{"count","crop","niche","mood","words_per_line","selected":[{"start","end"}]}` → renders clips
+  * `GET  /api/clipper/status` — `{status, progress, step, log, candidates, outputs}` (poll every ~1s while running)
+* **Response Output** (`/api/clipper/render`):
+  ```json
+  {
+    "message": "Clipper render started",
+    "job": "render"
   }
   ```
 

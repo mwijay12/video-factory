@@ -448,6 +448,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 loadSettings();
             } else if (tabId === 'tts' || tabId === 'vlab') {
                 initExplorerTTS();
+            } else if (tabId === 'clipper') {
+                loadClipperSources();
             }
             
             const targetTab = document.getElementById(`tab-${tabId}`);
@@ -461,6 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     'downloader': 'Downloader Hub',
                     'composer': 'Composer Timeline',
                     'lyrics-mode': 'Song to Reel Studio',
+                    'clipper': 'Longform Clipper',
                     'publisher': 'Publisher Pipeline',
                     'scheduler': 'Scheduler Queue',
                     'trends': 'Trending Finder',
@@ -4265,4 +4268,403 @@ window.vlabLoadVoices = vlabLoadVoices;
 window.vlabFilterVoices = vlabFilterVoices;
 window.vlabPreviewVoice = vlabPreviewVoice;
 window.vlabUseThisVoice = vlabUseThisVoice;
+
+// ================================================================
+// LONGFORM CLIPPER — sermons/podcasts → captioned vertical shorts
+// ================================================================
+let clipperPollInterval = null;
+let clipperActiveJob = null;
+let clipperLastCandidates = [];
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function setClipperConsole(text) {
+    const box = document.getElementById('clipper-console');
+    if (!box) return;
+    box.textContent = text;
+    box.scrollTop = box.scrollHeight;
+}
+
+function clipperErrorText(data, fallback) {
+    const d = data && data.detail;
+    if (typeof d === 'string' && d) return d;
+    if (d) { try { return JSON.stringify(d); } catch (e) { /* ignore */ } }
+    return fallback;
+}
+
+async function loadClipperSources() {
+    const sel = document.getElementById('clipper-source');
+    if (!sel) return;
+    try {
+        const res = await fetch('/api/clipper/sources');
+        const data = await res.json();
+        if (!res.ok) throw new Error(clipperErrorText(data, 'failed to load sources'));
+        const prev = sel.value;
+        sel.innerHTML = '';
+        const sources = data.sources || [];
+        if (!sources.length) {
+            sel.innerHTML = '<option value="">— No videos in assets/longform yet —</option>';
+            setClipperConsole('No source videos found. Upload one below, or drop files into assets/longform/.');
+            return;
+        }
+        for (const s of sources) {
+            const opt = document.createElement('option');
+            opt.value = s.name;
+            const dur = s.duration ? formatTimeSec(Math.floor(s.duration)) : '--:--';
+            const mark = s.analyzed ? '  ·  ✓ analyzed' : '';
+            opt.textContent = `${s.name}  ·  ${dur}${mark}`;
+            sel.appendChild(opt);
+        }
+        if (prev && Array.from(sel.options).some(o => o.value === prev)) {
+            sel.value = prev;
+        }
+    } catch (e) {
+        setClipperConsole('⚠ Failed to load sources: ' + e.message);
+    }
+}
+
+async function uploadClipperVideo() {
+    const input = document.getElementById('clipper-upload-file');
+    const status = document.getElementById('clipper-upload-status');
+    if (!input || !input.files || !input.files.length) return;
+
+    const fd = new FormData();
+    fd.append('file', input.files[0]);
+    if (status) status.textContent = 'Uploading…';
+    setClipperConsole(`Uploading ${input.files[0].name} ...`);
+
+    try {
+        const res = await fetch('/api/clipper/upload', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(clipperErrorText(data, 'upload failed'));
+        if (status) status.textContent = '✓ Uploaded';
+        input.value = '';
+        await loadClipperSources();
+        const sel = document.getElementById('clipper-source');
+        if (sel && data.name) sel.value = data.name;
+        setClipperConsole(`✅ Uploaded ${data.name} (${data.size_mb} MB) — ready to analyze.`);
+    } catch (e) {
+        if (status) status.textContent = '✗ Failed';
+        setClipperConsole('⚠ Upload failed: ' + e.message);
+    }
+}
+
+function clipperReadParams() {
+    const g = id => document.getElementById(id);
+    const sourceSel = g('clipper-source');
+    const source = sourceSel ? sourceSel.value : '';
+    if (!source) {
+        alert('Choose or upload a source video first.');
+        return null;
+    }
+    const minDur = parseFloat((g('clipper-min') || {}).value || '20');
+    const maxDur = parseFloat((g('clipper-max') || {}).value || '50');
+    if (!(maxDur > minDur)) {
+        alert('Max length must be greater than min length.');
+        return null;
+    }
+    return {
+        source,
+        language: (g('clipper-language') || {}).value || 'auto',
+        model: (g('clipper-model') || {}).value || 'base',
+        min_dur: minDur,
+        max_dur: maxDur,
+        count: parseInt((g('clipper-count') || {}).value || '3', 10) || 3,
+        words_per_line: parseInt((g('clipper-words') || {}).value || '4', 10) || 4,
+        crop: (g('clipper-crop') || {}).value || 'center',
+        niche: (g('clipper-niche') || {}).value || 'gospel',
+        mood: (g('clipper-mood') || {}).value || 'peaceful',
+    };
+}
+
+function clipperSetBusy(busy) {
+    ['clipper-analyze-btn', 'clipper-render-btn'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = !!busy;
+    });
+}
+
+function clipperResetPanel(prefix) {
+    const panel = document.getElementById(prefix + '-panel');
+    if (panel) panel.style.display = 'block';
+    const st = document.getElementById(prefix + '-status');
+    if (st) st.textContent = 'RUNNING';
+    const pc = document.getElementById(prefix + '-pct');
+    if (pc) pc.textContent = '0%';
+    const bar = document.getElementById(prefix + '-bar');
+    if (bar) bar.style.width = '0%';
+}
+
+function clipperUpdatePanel(prefix, status, pct) {
+    const panel = document.getElementById(prefix + '-panel');
+    if (panel) panel.style.display = 'block';
+    const st = document.getElementById(prefix + '-status');
+    if (st) st.textContent = String(status || '').toUpperCase();
+    const pc = document.getElementById(prefix + '-pct');
+    if (pc) pc.textContent = `${pct}%`;
+    const bar = document.getElementById(prefix + '-bar');
+    if (bar) bar.style.width = `${pct}%`;
+}
+
+async function startClipperAnalyze() {
+    const params = clipperReadParams();
+    if (!params) return;
+
+    clipperResetPanel('clipper-analyze');
+    clipperSetBusy(true);
+
+    try {
+        const res = await fetch('/api/clipper/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(clipperErrorText(data, 'failed to start analysis'));
+        setClipperConsole('🔍 Analysis started — extracting audio & transcribing with Whisper...\n');
+        beginClipperPoll('analyze');
+    } catch (e) {
+        clipperSetBusy(false);
+        const panel = document.getElementById('clipper-analyze-panel');
+        if (panel) panel.style.display = 'none';
+        setClipperConsole('⚠ ' + e.message);
+    }
+}
+
+async function renderClipperClips() {
+    const params = clipperReadParams();
+    if (!params) return;
+
+    // Send exact time windows (not ranks): re-scoring between analyze and
+    // render must never change WHICH moment gets clipped.
+    const checkedRanks = Array.from(document.querySelectorAll('input[name="clipper-cand"]:checked'))
+        .map(el => parseInt(el.value, 10))
+        .filter(n => !isNaN(n));
+    if (checkedRanks.length) {
+        const byRank = new Map(clipperLastCandidates.map(c => [Number(c.rank), c]));
+        params.selected = checkedRanks
+            .map(r => {
+                const c = byRank.get(r);
+                return c ? { start: Number(c.start), end: Number(c.end) } : null;
+            })
+            .filter(Boolean);
+        if (!params.selected.length) {
+            alert('Candidate details missing — run Analyze again, then render.');
+            return;
+        }
+    } else {
+        params.selected = null;
+    }
+
+    clipperResetPanel('clipper-render');
+    clipperSetBusy(true);
+
+    try {
+        const res = await fetch('/api/clipper/render', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(clipperErrorText(data, 'failed to start render'));
+        const how = params.selected
+            ? `${params.selected.length} selected clip(s)`
+            : `top ${params.count} candidates`;
+        setClipperConsole(`🎬 Render started (${how}) — analyzing (cached) + encoding...\n`);
+        beginClipperPoll('render');
+    } catch (e) {
+        clipperSetBusy(false);
+        const panel = document.getElementById('clipper-render-panel');
+        if (panel) panel.style.display = 'none';
+        setClipperConsole('⚠ ' + e.message);
+    }
+}
+
+function beginClipperPoll(job) {
+    clipperActiveJob = job;
+    if (clipperPollInterval) clearInterval(clipperPollInterval);
+    pollClipperStatus();
+    clipperPollInterval = setInterval(pollClipperStatus, 800);
+}
+
+async function pollClipperStatus() {
+    let d;
+    try {
+        const res = await fetch('/api/clipper/status');
+        d = await res.json();
+        if (!res.ok) throw new Error(clipperErrorText(d, 'status request failed'));
+    } catch (e) {
+        // transient fetch failure — keep polling; a dead job is detected server-side
+        return;
+    }
+
+    const job = d.job || clipperActiveJob || 'analyze';
+    const prefix = job === 'render' ? 'clipper-render' : 'clipper-analyze';
+    clipperUpdatePanel(prefix, d.status, d.progress || 0);
+
+    const box = document.getElementById('clipper-console');
+    if (box) {
+        let text = d.log || '';
+        if (d.status === 'failed' && d.error) text += `\n❌ ${d.error}`;
+        if (text) {
+            box.textContent = text;
+            box.scrollTop = box.scrollHeight;
+        }
+    }
+
+    if (d.status === 'running') return;
+
+    if (clipperPollInterval) clearInterval(clipperPollInterval);
+    clipperPollInterval = null;
+    clipperSetBusy(false);
+
+    if (d.status === 'completed') {
+        if (Array.isArray(d.candidates) && d.candidates.length) {
+            renderClipperCandidates(d.candidates);
+        }
+        if (job === 'render') {
+            showClipperOutputs(Array.isArray(d.outputs) ? d.outputs : []);
+        }
+        if (job === 'analyze') {
+            const cands = document.getElementById('clipper-candidates');
+            if (cands) cands.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    } else if (d.status === 'failed') {
+        const panel = document.getElementById(prefix + '-status');
+        if (panel) panel.textContent = 'FAILED';
+    }
+}
+
+function renderClipperCandidates(list) {
+    const box = document.getElementById('clipper-candidates');
+    const countEl = document.getElementById('clipper-candidate-count');
+    if (!box) return;
+    clipperLastCandidates = Array.isArray(list) ? list : [];
+
+    if (!Array.isArray(list) || !list.length) {
+        box.innerHTML = '<div style="font-size: 0.85rem; color: var(--text-muted); padding: 1.25rem; border: 1px dashed var(--border-subtle); border-radius: 10px; text-align: center;">' +
+            'No candidates found — try a longer source, another language, or smaller min length.</div>';
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+
+    const topN = Math.max(1, parseInt((document.getElementById('clipper-count') || {}).value || '3', 10) || 3);
+
+    box.innerHTML = list.map((c, i) => {
+        const start = Number(c.start) || 0;
+        const end = Number(c.end) || 0;
+        const dur = Number(c.duration) || (end - start);
+        const score = Number(c.score) || 0;
+        const rank = Number(c.rank) || (i + 1);
+
+        const badges = [];
+        if (c.hooks) badges.push(`🪝 ${c.hooks} hook ${c.hooks === 1 ? 'word' : 'words'}`);
+        if (c.question) badges.push('❓ question');
+        if (c.number) badges.push('🔢 number');
+        if (c.wps) badges.push(`⚡ ${Math.round(Number(c.wps))} w/s`);
+
+        const badgeHtml = badges.length
+            ? `<div style="margin-top: 0.4rem; display: flex; gap: 0.4rem; flex-wrap: wrap;">` +
+              badges.map(b => `<span style="font-size: 0.7rem; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); border-radius: 99px; color: var(--text-muted);">${b}</span>`).join('') +
+              `</div>`
+            : '';
+
+        return `
+        <div class="glass-card" style="padding: 0.7rem 0.9rem; margin-bottom: 0.55rem; border-radius: 10px; display: flex; gap: 0.7rem; align-items: flex-start; background: rgba(255,255,255,0.02);">
+            <input type="checkbox" name="clipper-cand" value="${rank}" ${i < topN ? 'checked' : ''} onchange="onClipperCandidateToggle()" style="margin-top: 0.35rem; accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;">
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.76rem; color: var(--text-muted); font-family: var(--font-code);">
+                    <span>#${rank} · ${formatTimeSec(Math.floor(start))} → ${formatTimeSec(Math.floor(end))} · ${dur.toFixed(1)}s</span>
+                    <span style="color: var(--primary); font-weight: 700; white-space: nowrap;">★ ${score.toFixed(1)}</span>
+                </div>
+                <div style="font-size: 0.9rem; margin-top: 0.35rem; color: var(--text-main); line-height: 1.5; word-break: break-word;">${escapeHtml(c.text)}</div>
+                ${badgeHtml}
+            </div>
+        </div>`;
+    }).join('');
+
+    if (countEl) countEl.textContent = `(${list.length} found)`;
+    onClipperCandidateToggle();
+    if (window.lucide) lucide.createIcons();
+}
+
+function onClipperCandidateToggle() {
+    const countEl = document.getElementById('clipper-candidate-count');
+    if (!countEl) return;
+    const all = document.querySelectorAll('input[name="clipper-cand"]').length;
+    if (!all) return;
+    const checked = document.querySelectorAll('input[name="clipper-cand"]:checked').length;
+    countEl.textContent = `(${all} found · ${checked} selected)`;
+}
+
+function showClipperOutputs(list) {
+    const box = document.getElementById('clipper-output-list');
+    if (!box) return;
+
+    if (!Array.isArray(list) || !list.length) {
+        box.innerHTML = '<div style="font-size: 0.85rem; color: var(--text-muted); padding: 1.25rem; border: 1px dashed var(--border-subtle); border-radius: 10px; text-align: center;">No clips rendered yet.</div>';
+        return;
+    }
+
+    box.innerHTML = list.map(o => {
+        const url = encodeURI(o.url || '');
+        const kitUrl = o.social_kit_url ? encodeURI(o.social_kit_url) : '';
+        const title = escapeHtml(o.title || o.name || 'Clip');
+        const dur = Number(o.duration) || 0;
+        const size = Number(o.size_mb) || 0;
+        return `
+        <div class="glass-card" style="padding: 0.8rem; margin-bottom: 0.75rem; border-radius: 12px; background: rgba(255,255,255,0.02);">
+            <video src="${url}" controls preload="metadata" playsinline style="width: 100%; max-height: 320px; border-radius: 10px; background: #000; display: block;"></video>
+            <div style="display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.55rem; font-size: 0.8rem; color: var(--text-muted);">
+                <span style="color: var(--text-main); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${title}">${title}</span>
+                <span style="white-space: nowrap;">${dur}s · ${size} MB</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.65rem; flex-wrap: wrap;">
+                <a class="btn btn-secondary" href="${url}" download style="padding: 0.35rem 0.75rem; font-size: 0.75rem; height: auto; border-radius: 6px;">⬇ MP4</a>
+                ${kitUrl ? `<a class="btn btn-secondary" href="${kitUrl}" target="_blank" rel="noopener" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; height: auto; border-radius: 6px;">#️⃣ Caption Kit</a>` : ''}
+                <button class="btn btn-secondary" onclick="scheduleClipperClip('${escapeHtml(o.name || '').replace(/'/g, '&#39;')}')" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; height: auto; border-radius: 6px;">📅 Schedule</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+    const scroller = document.getElementById('clipper-outputs');
+    if (scroller) scroller.scrollTop = 0;
+}
+
+function scheduleClipperClip(videoName) {
+    if (!videoName) return;
+    switchTab('scheduler');
+    setTimeout(async () => {
+        if (typeof setQueueVideoMode === 'function') setQueueVideoMode('rendered');
+        if (typeof loadRenderedVideoList === 'function') {
+            try { await loadRenderedVideoList(); } catch (e) { /* list refresh is best-effort */ }
+        }
+        const sel = document.getElementById('queue-rendered-video');
+        if (sel) {
+            const match = Array.from(sel.options).find(o => o.value === videoName);
+            if (match) sel.value = videoName;
+        }
+    }, 250);
+}
+
+window.loadClipperSources = loadClipperSources;
+window.uploadClipperVideo = uploadClipperVideo;
+window.startClipperAnalyze = startClipperAnalyze;
+window.renderClipperClips = renderClipperClips;
+window.pollClipperStatus = pollClipperStatus;
+window.renderClipperCandidates = renderClipperCandidates;
+window.showClipperOutputs = showClipperOutputs;
+window.onClipperCandidateToggle = onClipperCandidateToggle;
+window.scheduleClipperClip = scheduleClipperClip;
+window.escapeHtml = escapeHtml;
+
 

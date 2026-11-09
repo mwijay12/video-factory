@@ -437,6 +437,9 @@ Examples:
   python main.py --time-based                 Auto pick niche by time
   python main.py --niche bedtime_prayer       Whisper bedtime mode
   python main.py --list                       List all scripts
+  python main.py --clip-list                  List longform sermon/podcast sources
+  python main.py --clip-longform              Clip newest longform video → 3 shorts
+  python main.py --clip-longform sermon.mp4 --clips 5 --clip-crop top
         '''
     )
     p.add_argument('--niche', '-n', type=str, default=NICHE,
@@ -485,6 +488,25 @@ Examples:
                    help='Type of media to download from stock API')
     p.add_argument('--download-music', type=str, default=None,
                    help='Download copyright-free background music/beats from YouTube by niche or query')
+    # ── Longform Clipper (sermons/podcasts → vertical shorts) ──
+    p.add_argument('--clip-longform', type=str, nargs='?', const='auto',
+                   default=None, metavar='SOURCE',
+                   help='Clip a longform video into captioned vertical shorts\n'
+                        '(omit SOURCE to use the newest file in assets/longform)')
+    p.add_argument('--clip-list', action='store_true',
+                   help='List longform source videos available for clipping')
+    p.add_argument('--clips', type=int, default=3,
+                   help='Number of top clips to render (default: 3)')
+    p.add_argument('--clip-min', type=float, default=20,
+                   help='Minimum clip length in seconds (default: 20)')
+    p.add_argument('--clip-max', type=float, default=50,
+                   help='Maximum clip length in seconds (default: 50)')
+    p.add_argument('--clip-model', type=str, default='base',
+                   choices=['tiny', 'base', 'small', 'medium', 'large-v3'],
+                   help='faster-whisper model size (default: base)')
+    p.add_argument('--clip-crop', type=str, default='center',
+                   choices=['center', 'top', 'bottom', 'left', 'right'],
+                   help='9:16 crop focus when reframing (default: center)')
     return p.parse_args()
 
 
@@ -538,6 +560,28 @@ async def run():
 
     if args.list:
         list_all_scripts()
+        return
+
+    # ── Longform Clipper modes ──
+    if args.clip_list:
+        from src.video.longform_clipper import print_source_list
+        print_source_list()
+        return
+
+    if args.clip_longform is not None:
+        from src.video.longform_clipper import run_clipper_pipeline
+        run_clipper_pipeline(
+            source=args.clip_longform,
+            language=args.lang,
+            model=args.clip_model,
+            min_dur=args.clip_min,
+            max_dur=args.clip_max,
+            count=args.clips,
+            crop=args.clip_crop,
+            niche=args.niche,
+            mood=args.mood or 'peaceful',
+            words_per_line=args.words_per_line,
+        )
         return
 
     if args.song:
