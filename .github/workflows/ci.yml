@@ -18,6 +18,11 @@ jobs:
       - name: Byte-compile source
         run: python -m compileall -q main.py config src mwijay_daily_brief.py piano_sifa_hf_generator.py piano_sifa_prompts.py piano_sifa_trends_picker.py
 
+      - name: Clipper core unit tests
+        run: |
+          python -m pip install --quiet numpy
+          python tests/test_clipper_core.py
+
       - name: Check .env is not committed
         run: |
           if git ls-files | grep -Eq '(^|/)\.env$|client_secrets\.json$'; then

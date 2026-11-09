@@ -98,6 +98,7 @@ async def generate_narration_reel(
             use_viral_hook=use_viral,
             series=use_series,
             time_based=use_time_based,
+            target_duration=kwargs.get('target_duration'),
         )
     else:
         safe_niche = niche if niche in ['gospel','prayer','motivational','swahili'] else 'gospel'
@@ -472,7 +473,10 @@ Examples:
     p.add_argument('--ai', action='store_true')
     p.add_argument('--list', action='store_true')
     p.add_argument('--list-songs', action='store_true', help='List all available songs and tracks')
-    p.add_argument('--duration', '-d', type=int, default=25, help='Target reel duration in seconds')
+    p.add_argument('--duration', '-d', type=int, default=None,
+                   help='Target reel duration in seconds (default: 25; '
+                        'narration reels honour it only when explicitly passed, '
+                        'as an AI word-budget)')
     p.add_argument('--words-per-line', type=int, default=4, help='Words per subtitle line for kinetic captions')
     p.add_argument('--output', '-o', type=str, default=None)
     p.add_argument('--download-pinterest', type=str, default=None,
@@ -507,7 +511,21 @@ Examples:
     p.add_argument('--clip-crop', type=str, default='center',
                    choices=['center', 'top', 'bottom', 'left', 'right'],
                    help='9:16 crop focus when reframing (default: center)')
-    return p.parse_args()
+    p.add_argument('--clip-stt', type=str, default='local',
+                   choices=['local', 'groq'],
+                   help='Transcription engine: local Whisper or Groq cloud (default: local)')
+    p.add_argument('--clip-captions', type=str, default='karaoke',
+                   choices=['karaoke', 'static', 'none'],
+                   help='Caption style (default: karaoke word-highlight)')
+    p.add_argument('--clip-music', type=str, default='none',
+                   help="Background music bed: 'none', 'auto', or a file path (default: none)")
+    args = p.parse_args()
+    # --duration: legacy default 25s for song mode; narration reels only
+    # treat it as an AI word-budget when the user explicitly passed it.
+    args.duration_explicit = args.duration is not None
+    if args.duration is None:
+        args.duration = 25
+    return args
 
 
 # ================================================================
@@ -581,6 +599,9 @@ async def run():
             niche=args.niche,
             mood=args.mood or 'peaceful',
             words_per_line=args.words_per_line,
+            stt=args.clip_stt,
+            captions=args.clip_captions,
+            music=args.clip_music,
         )
         return
 
@@ -623,6 +644,7 @@ async def run():
                 use_series=args.series,
                 use_viral=args.viral,
                 use_time_based=args.time_based,
+                target_duration=(args.duration if args.duration_explicit else None),
             )
     else:
         await generate_narration_reel(
@@ -635,6 +657,7 @@ async def run():
             use_series=args.series,
             use_viral=args.viral,
             use_time_based=args.time_based,
+            target_duration=(args.duration if args.duration_explicit else None),
         )
 
 

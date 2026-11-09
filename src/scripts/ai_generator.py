@@ -884,7 +884,8 @@ Return ONLY the caption text.
             return f"{title}\n\n{tags}"
 
     async def generate(self, niche='gospel', topic=None, language='english',
-                       use_viral_hook=True, series=None, time_based=False):
+                       use_viral_hook=True, series=None, time_based=False,
+                       target_duration=None):
 
         if time_based:
             ctx = get_time_context()
@@ -924,6 +925,26 @@ Return ONLY the caption text.
         print(f'  CTA:       {cta}')
 
         prompt = build_prompt(niche, topic, mood, viral_hook=viral, series_info=series_info, cta=cta, language=actual_lang)
+
+        # Optional word-budget so narration reels respect --duration
+        if target_duration:
+            try:
+                budget_words = int(float(target_duration) * 2.6)
+            except (TypeError, ValueError):
+                budget_words = 0
+            if budget_words > 0:
+                if actual_lang == 'swahili':
+                    prompt += (
+                        f"\n\nKIASI CHA MUDA: Jumla ya script iwe ≈ {int(target_duration)} "
+                        f"sekunde (maneno ≈ {budget_words} yote pamoja na ndoano, mwili na wito). "
+                        "Ukipita hayo, punguza mistari ya mwili."
+                    )
+                else:
+                    prompt += (
+                        f"\n\nDURATION BUDGET: Keep the TOTAL spoken script ≈ {int(target_duration)} "
+                        f"seconds (about {budget_words} words including hook, body and CTA). "
+                        "Trim body lines if you would exceed it."
+                    )
 
         # Set up provider chains based on language
         # OpenAI -> Gemini -> Groq -> OpenRouter -> Cloudflare -> Ollama

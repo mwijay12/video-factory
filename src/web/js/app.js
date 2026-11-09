@@ -2221,7 +2221,6 @@ Return ONLY valid JSON (no markdown, no backticks):
                 
                 // Set fields
                 document.getElementById("settings-niche").value = data.NICHE;
-                document.getElementById("settings-content-mode").value = data.CONTENT_MODE;
                 document.getElementById("settings-lang").value = data.LANGUAGE;
                 document.getElementById("settings-mode").value = data.MODE;
                 
@@ -2482,7 +2481,6 @@ Return ONLY valid JSON (no markdown, no backticks):
 
             let settings = {
                 NICHE: document.getElementById("settings-niche").value,
-                CONTENT_MODE: document.getElementById("settings-content-mode").value,
                 LANGUAGE: document.getElementById("settings-lang").value,
                 MODE: document.getElementById("settings-mode").value,
                 ACTIVE_VOICE: document.getElementById("settings-voice").value,
@@ -3145,7 +3143,6 @@ Return ONLY valid JSON (no markdown, no backticks):
                         body: JSON.stringify({
                             settings: {
                                 NICHE: settingsData.NICHE,
-                                CONTENT_MODE: settingsData.CONTENT_MODE,
                                 LANGUAGE: settingsData.LANGUAGE,
                                 MODE: settingsData.MODE,
                                 ACTIVE_VOICE: settingsData.ACTIVE_VOICE,
@@ -4382,6 +4379,9 @@ function clipperReadParams() {
         crop: (g('clipper-crop') || {}).value || 'center',
         niche: (g('clipper-niche') || {}).value || 'gospel',
         mood: (g('clipper-mood') || {}).value || 'peaceful',
+        captions: (g('clipper-captions') || {}).value || 'karaoke',
+        stt: (g('clipper-stt') || {}).value || 'local',
+        music: (g('clipper-music') || {}).value || 'none',
     };
 }
 

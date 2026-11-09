@@ -1186,14 +1186,6 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Default Content Mode</label>
-                                    <select id="settings-content-mode">
-                                        <option value="reels">Instagram Reels / YouTube Shorts (9:16)</option>
-                                        <option value="shorts">YouTube Shorts (9:16)</option>
-                                        <option value="longform">Longform Landscape (16:9)</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
                                     <label>Default Language</label>
                                     <select id="settings-lang" onchange="updateSettingsVoiceDropdown()">
                                         <option value="english">English</option>
@@ -1885,6 +1877,28 @@
                                     <option value="hopeful">Hopeful</option>
                                     <option value="emotional">Emotional</option>
                                     <option value="holy">Holy</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Captions</label>
+                                <select id="clipper-captions">
+                                    <option value="karaoke" selected>🎤 Karaoke (word highlight)</option>
+                                    <option value="static">Subtitle (static)</option>
+                                    <option value="none">None (clean)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Transcription Engine</label>
+                                <select id="clipper-stt">
+                                    <option value="local" selected>Local Whisper (offline)</option>
+                                    <option value="groq">Groq Cloud (fastest · needs GROQ key)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Background Music</label>
+                                <select id="clipper-music">
+                                    <option value="none" selected>None</option>
+                                    <option value="auto">Auto niche (ducked under speech)</option>
                                 </select>
                             </div>
                         </div>

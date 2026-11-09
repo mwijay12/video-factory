@@ -259,7 +259,6 @@ def get_settings():
     
     return {
         "MODE": getattr(config.settings, "MODE", "data_saver"),
-        "CONTENT_MODE": getattr(config.settings, "CONTENT_MODE", "reels"),
         "NICHE": getattr(config.settings, "NICHE", "gospel"),
         "LANGUAGE": getattr(config.settings, "LANGUAGE", "english"),
         "ACTIVE_VOICE": getattr(config.settings, "ACTIVE_VOICE", ""),
@@ -302,7 +301,7 @@ def save_settings(payload: Dict):
     valid_keys = {}
     
     for k, v in settings_data.items():
-        if k in ["MODE", "CONTENT_MODE", "NICHE", "LANGUAGE", "ACTIVE_VOICE", "TTS_RATE", "TTS_VOLUME", "TTS_PITCH", "TTS_PROVIDER",
+        if k in ["MODE", "NICHE", "LANGUAGE", "ACTIVE_VOICE", "TTS_RATE", "TTS_VOLUME", "TTS_PITCH", "TTS_PROVIDER",
                  "SUBTITLE_COLOR", "SUBTITLE_STROKE_COLOR", "SUBTITLE_FONT_PATH", "SUBTITLE_ANIMATION_STYLE",
                  "VIDEO_QUALITY_PRESET", "WATERMARK_PATH", "WATERMARK_POSITION"]:
             valid_settings[k] = str(v)
@@ -1207,6 +1206,7 @@ def clipper_analyze(payload: Dict):
         "source": source,
         "language": payload.get("language", "auto"),
         "model": payload.get("model", "base"),
+        "stt": payload.get("stt", "local"),
         "min_dur": min_dur,
         "max_dur": max_dur,
     })
@@ -1266,6 +1266,8 @@ def clipper_render(payload: Dict):
         "crop": payload.get("crop", "center"),
         "niche": payload.get("niche", "gospel"),
         "mood": payload.get("mood", "peaceful"),
+        "captions": payload.get("captions", "karaoke"),
+        "music": payload.get("music", "none"),
         "selected": selected,
     })
     return {"message": "Clipper render started", "job": "render"}

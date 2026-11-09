@@ -134,6 +134,7 @@ def main():
     source = payload.get("source") or "auto"
     model = payload.get("model", "base")
     language = payload.get("language", "auto")
+    stt = payload.get("stt", "local")
     min_dur = float(payload.get("min_dur", 20))
     max_dur = float(payload.get("max_dur", 50))
 
@@ -157,6 +158,7 @@ def main():
             max_dur=max_dur,
             use_cache=True,
             progress_cb=analysis_cb,
+            stt=stt,
         )
 
         cands = analysis.get("candidates") or []
@@ -186,6 +188,8 @@ def main():
             mood=payload.get("mood", "peaceful"),
             niche=payload.get("niche", "gospel"),
             language=analysis.get("language", "swahili"),
+            caption_style=payload.get("captions", "karaoke"),
+            music=payload.get("music", "none"),
             progress_cb=scale(46, 99),
         )
         _complete(**meta, outputs=outputs)

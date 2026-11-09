@@ -253,11 +253,140 @@ def _attach_word_energy(wav_path, words):
 
 
 # ================================================================
-# TRANSCRIPTION (faster-whisper, imported lazily)
+# TRANSCRIPTION — local faster-whisper + Groq cloud offload
 # ================================================================
 
-def transcribe_audio(wav_path, model_size="base", language="auto", progress_cb=None):
-    """Word-level transcript. Returns {'language', 'words'}."""
+def _groq_available():
+    try:
+        from config.settings import ENV
+        return bool((ENV.get("GROQ_KEYS", "") or "").strip()
+                    or (ENV.get("GROQ_API_KEY", "") or "").strip())
+    except Exception:
+        return False
+
+
+def _flatten_groq(res, offset, language_hint=None):
+    """Groq verbose_json → clipper word list (absolute times)."""
+    words = []
+    for seg in res.get("segments", []):
+        for w in seg.get("words", []):
+            token = (w.get("word") or "").strip()
+            if not token:
+                continue
+            words.append({
+                "word": token,
+                "start": round(float(w.get("start", 0)) + offset, 3),
+                "end": round(float(w.get("end", 0)) + offset, 3),
+            })
+    code = language_hint or res.get("language") or None
+    return words, code
+
+
+def _transcribe_groq_chunked(wav_path, language="auto", progress_cb=None,
+                             chunk_sec=700):
+    """
+    Cloud STT via the repo's key-rotating Groq client.
+    Long sermons are split into ~700s WAV chunks (25MB upload cap).
+    Returns (words, language_code) or (None, None) → caller falls back local.
+    """
+    from src.audio.lyrics_mode import transcribe_with_groq_api
+
+    wav_path = Path(wav_path)
+    if not wav_path.exists():
+        return None, None
+
+    with wave.open(str(wav_path), "rb") as wf:
+        sr = wf.getframerate()
+        n_total = wf.getnframes()
+        total_sec = n_total / sr
+        sw = wf.getsampwidth()
+        ch = wf.getnchannels()
+
+        def _read_at(start_sec, count_frames):
+            wf.setpos(min(int(start_sec * sr), n_total))
+            return wf.readframes(count_frames)
+
+        # single shot — no chunking needed
+        if total_sec <= chunk_sec:
+            res = transcribe_with_groq_api(wav_path, language=language)
+            if not res:
+                return None, None
+            words, code = _flatten_groq(res, 0.0)
+            return (words or None), code
+
+        tmp_dir = TRANSCRIPT_DIR / "_groq_chunks"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        words, code = [], None
+        try:
+            t0, idx = 0.0, 0
+            while t0 < total_sec:
+                frames = _read_at(t0, min(int(chunk_sec * sr),
+                                          n_total - int(t0 * sr)))
+                if not frames:
+                    break
+                cp = tmp_dir / f"chunk_{idx:03d}.wav"
+                with wave.open(str(cp), "wb") as out:
+                    out.setnchannels(ch)
+                    out.setsampwidth(sw)
+                    out.setframerate(sr)
+                    out.writeframes(frames)
+
+                res = transcribe_with_groq_api(cp, language=language)
+                try:
+                    cp.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                if not res:
+                    # any chunk failing (keys/rate-limit) → full local retry
+                    return None, None
+
+                part, c2 = _flatten_groq(res, t0, language_hint=None)
+                words.extend(part)
+                code = code or c2
+
+                idx += 1
+                t0 += chunk_sec
+                if progress_cb:
+                    frac = min(1.0, t0 / total_sec)
+                    progress_cb(
+                        12 + int(frac * 46),
+                        f"Groq cloud STT chunk {idx}... {int(frac * 100)}%",
+                    )
+        finally:
+            try:
+                if tmp_dir.exists() and not any(tmp_dir.iterdir()):
+                    tmp_dir.rmdir()
+            except Exception:
+                pass
+
+    return (words or None), code
+
+
+def transcribe_audio(wav_path, model_size="base", language="auto",
+                     progress_cb=None, stt="local"):
+    """Word-level transcript. stt: 'local' (faster-whisper) | 'groq' (cloud)."""
+    if str(stt).lower() == "groq":
+        if not _groq_available():
+            log("  ⚠ Groq STT requested but GROQ_API_KEY/GROQ_KEYS not set "
+                "— falling back to local Whisper.")
+        else:
+            if progress_cb:
+                progress_cb(10, "Groq cloud STT (chunked upload)...")
+            g_words, g_code = _transcribe_groq_chunked(
+                wav_path, language=language, progress_cb=progress_cb
+            )
+            if g_words:
+                label = LANG_LABEL.get(g_code, g_code or "auto")
+                if progress_cb:
+                    progress_cb(60, f"Cloud transcript ready ({len(g_words)} words)")
+                return {
+                    "language": label,
+                    "language_code": g_code or "en",
+                    "words": g_words,
+                    "provider": "groq",
+                }
+            log("  ⚠ Groq STT unavailable — falling back to local Whisper.")
+
     try:
         from faster_whisper import WhisperModel
     except ImportError as e:
@@ -307,6 +436,7 @@ def transcribe_audio(wav_path, model_size="base", language="auto", progress_cb=N
         "language": LANG_LABEL.get(detected, detected),
         "language_code": detected,
         "words": words,
+        "provider": "local",
     }
 
 
@@ -519,7 +649,12 @@ def words_to_subtitles(words, max_words=4, max_chars=34, max_gap=0.65, window=No
             end = start + 0.45
         text = " ".join(_clean_word(w) for w in cur)
         if text:
-            cues.append({"text": text, "start": start, "end": end})
+            cues.append({
+                "text": text,
+                "start": start,
+                "end": end,
+                "words": [dict(w) for w in cur],   # word timings for karaoke
+            })
 
     for w in words:
         if cur:
@@ -549,9 +684,10 @@ def transcript_path_for(video_path):
 
 def analyze_video(source, model="base", language="auto",
                   min_dur=20.0, max_dur=50.0,
-                  use_cache=True, progress_cb=None):
+                  use_cache=True, progress_cb=None, stt="local"):
     """
     Full analysis: audio → transcript → scored candidates.
+    stt: 'local' (faster-whisper) or 'groq' (cloud, chunked upload).
     Reuses a cached transcript when it is fresh and params match;
     min/max re-scoring happens without touching Whisper.
     Returns dict with words + candidates + transcript_path.
@@ -596,7 +732,8 @@ def analyze_video(source, model="base", language="auto",
         extract_audio(video, wav_path)
         try:
             result = transcribe_audio(
-                wav_path, model_size=model, language=language, progress_cb=cb
+                wav_path, model_size=model, language=language,
+                progress_cb=cb, stt=stt,
             )
             words = result["words"]
             detected_lang = result["language"]
@@ -627,6 +764,7 @@ def analyze_video(source, model="base", language="auto",
         "source_path": str(video),
         "language": detected_lang,
         "model": model,
+        "stt": stt,
         "duration": duration,
         "word_count": len(words),
         "min_dur": min_dur,
@@ -724,12 +862,154 @@ def _make_encode_logger(on_progress):
     return _ClipEncodeLogger(on_progress)
 
 
+def _build_karaoke_track(cues, window_start, window_dur, mood="peaceful", y_pos=0):
+    """
+    One RGBA VideoClip that swaps pre-rendered word-highlight frames
+    (same proven pattern as ReelVideoEngine._build_subtitle_layers).
+    Cue times are shifted into the clip's relative timeline.
+    """
+    from moviepy import VideoClip
+    from src.video.video_engine import build_subtitle_image_karaoke
+
+    chunks = []
+    blank = None
+    for cue in cues:
+        text = str(cue.get("text", "")).strip()
+        if not text:
+            continue
+        words_text = text.split()
+        word_frames = [
+            build_subtitle_image_karaoke(
+                text=text,
+                active_word_index=i,
+                width=980,
+                font_size=56,
+                mood=mood,
+            )
+            for i in range(len(words_text))
+        ]
+        if blank is None:
+            blank = np.zeros((380, 980, 4), dtype=np.uint8)
+
+        c_start = max(0.0, float(cue["start"]) - window_start)
+        c_end = min(window_dur, float(cue["end"]) - window_start)
+        if c_end <= c_start:
+            continue
+        # shift word times into the clip-relative timeline
+        shifted_words = [
+            {"start": float(w.get("start", 0)) - window_start,
+             "end": float(w.get("end", 0)) - window_start}
+            for w in (cue.get("words") or [])
+        ]
+        chunks.append({
+            "start": c_start,
+            "end": c_end,
+            "duration": max(0.01, c_end - c_start),
+            "word_frames": word_frames,
+            "cue_words": shifted_words,
+        })
+
+    if not chunks or blank is None:
+        return None
+
+    def make_frame(t):
+        for ch in chunks:
+            if ch["start"] <= t < ch["end"]:
+                frames = ch["word_frames"]
+                if len(frames) <= 1:
+                    return frames[0]
+                idx = 0
+                cw = ch["cue_words"]
+                if len(cw) == len(frames):
+                    # word-accurate highlight from whisper timings
+                    for i, w in enumerate(cw):
+                        if t >= w["start"]:
+                            idx = i
+                else:
+                    prog = min(1.0, max(0.0, (t - ch["start"]) / ch["duration"]))
+                    idx = int(prog * len(frames))
+                return frames[min(idx, len(frames) - 1)]
+        return blank
+
+    return VideoClip(make_frame, duration=window_dur).with_position(("center", y_pos))
+
+
+def _box_smooth(x, kernel):
+    """O(n) moving-average smoothing (kills envelope clicks)."""
+    k = max(1, int(kernel))
+    if k == 1 or len(x) <= k:
+        return x
+    c = np.cumsum(np.insert(np.asarray(x, dtype=np.float64), 0, 0.0))
+    sm = (c[k:] - c[:-k]) / k
+    return np.concatenate([np.full(k, sm[0]), sm])[:len(x)].astype(np.float32)
+
+
+def _duck_gain(words, duration, offset=0.0, fps=44100,
+               low=0.16, high=0.42, smooth=0.12):
+    """
+    Word-timed music gain: low while someone is speaking, open in pauses,
+    smoothed to avoid clicks. `offset` maps absolute word times to the
+    clip-relative envelope grid.
+    """
+    n = max(1, int(round(duration * fps)))
+    target = np.full(n, float(high), dtype=np.float32)
+    for w in (words or []):
+        a = int(max(0.0, float(w.get("start", 0)) - offset) * fps)
+        b = int(min(duration, float(w.get("end", 0)) - offset + 0.12) * fps)
+        if b > a:
+            target[max(0, a):min(n, b)] = low
+    return _box_smooth(target, int(smooth * fps))
+
+
+def _build_ducked_music(music_path, words, duration, offset, out_path):
+    """Decode music → loop/trim → apply duck envelope → stereo wav bed."""
+    from moviepy import AudioFileClip
+    try:
+        m = AudioFileClip(str(music_path))
+        try:
+            arr = m.to_soundarray(fps=44100)
+        except TypeError:
+            arr = m.to_soundarray()
+        m.close()
+    except Exception as e:
+        log(f"  ⚠ music bed skipped: {e}")
+        return None
+    if arr is None or len(arr) == 0:
+        return None
+
+    n = int(round(duration * 44100))
+    if len(arr) >= n:
+        arr = arr[:n]
+    else:
+        reps = int(np.ceil(n / len(arr)))
+        arr = np.tile(arr, (reps, 1))[:n]
+
+    gain = _duck_gain(words, duration, offset=offset, fps=44100)
+    arr = arr * (gain[:, None] if arr.ndim > 1 else gain)
+
+    peak = float(np.max(np.abs(arr))) or 1.0
+    if peak > 0.95:
+        arr = arr * (0.95 / peak)
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    data = (np.clip(arr, -1.0, 1.0) * 32767.0).astype(np.int16)
+    with wave.open(str(out_path), "wb") as wf:
+        wf.setnchannels(2 if data.ndim > 1 else 1)
+        wf.setsampwidth(2)
+        wf.setframerate(44100)
+        wf.writeframes(data.tobytes())
+    return out_path
+
+
 def render_clip(source_path, candidate, words, output_name,
                 crop_position="center", words_per_line=4,
                 mood="peaceful", language="swahili",
+                caption_style="karaoke", music_path=None,
                 encode_cb=None):
     """
-    Render one candidate: 9:16 reframe + grouped captions + source audio.
+    Render one candidate: 9:16 reframe + grouped captions (static or
+    karaoke word-highlight) + source audio (optional ducked music bed).
     encode_cb(pct0-100) fires during encoding.
     Returns the output Path.
     """
@@ -759,6 +1039,8 @@ def render_clip(source_path, candidate, words, output_name,
     base = None
     final = None
     audio = None
+    bed_clip = None
+    bed_path = None
     try:
         seg = VideoFileClip(str(source_path)).subclipped(start, end).with_start(0)
 
@@ -777,27 +1059,45 @@ def render_clip(source_path, candidate, words, output_name,
 
         layers = [base]
         sub_y = int(CLIP_HEIGHT * SUBTITLE_Y_RATIO)
-        for cue in cues:
-            img = build_subtitle_image(
-                cue["text"],
-                width=980,
-                font_size=56,
-                mood=mood,
-            )
-            cue_start = max(0.0, cue["start"] - start)
-            cue_end = min(dur, cue["end"] - start)
-            if cue_end <= cue_start:
-                continue
-            layer = (
-                ImageClip(img, transparent=True)
-                .with_start(cue_start)
-                .with_duration(cue_end - cue_start)
-                .with_position(("center", sub_y))
-            )
-            layers.append(layer)
+        style = (caption_style or "karaoke").lower()
+
+        if style == "karaoke" and cues:
+            track = _build_karaoke_track(cues, start, dur, mood=mood, y_pos=sub_y)
+            if track is not None:
+                layers.append(track)
+        elif style != "none" and cues:
+            for cue in cues:
+                img = build_subtitle_image(
+                    cue["text"],
+                    width=980,
+                    font_size=56,
+                    mood=mood,
+                )
+                cue_start = max(0.0, cue["start"] - start)
+                cue_end = min(dur, cue["end"] - start)
+                if cue_end <= cue_start:
+                    continue
+                layer = (
+                    ImageClip(img, transparent=True)
+                    .with_start(cue_start)
+                    .with_duration(cue_end - cue_start)
+                    .with_position(("center", sub_y))
+                )
+                layers.append(layer)
 
         final = CompositeVideoClip(layers, size=(CLIP_WIDTH, CLIP_HEIGHT))
         final = final.with_duration(dur)
+
+        if audio is not None and music_path:
+            from moviepy import AudioFileClip, CompositeAudioClip
+            bed_path = _build_ducked_music(
+                music_path, win_words, dur, offset=start,
+                out_path=Path("output/temp") / f"bed_{Path(output_name).stem}.wav",
+            )
+            if bed_path is not None:
+                bed_clip = AudioFileClip(str(bed_path)).with_start(0)
+                audio = CompositeAudioClip([audio, bed_clip])
+
         if audio is not None:
             final = final.with_audio(audio)
 
@@ -820,10 +1120,15 @@ def render_clip(source_path, candidate, words, output_name,
         )
         return out_path
     finally:
-        for c in (final, base, seg, audio):
+        for c in (final, base, seg, audio, bed_clip):
             try:
                 if c is not None:
                     c.close()
+            except Exception:
+                pass
+        if bed_path is not None:
+            try:
+                Path(bed_path).unlink(missing_ok=True)
             except Exception:
                 pass
 
@@ -993,13 +1298,39 @@ def resolve_selection(analysis, selected, count=3):
     return chosen
 
 
+def _resolve_music(music, niche):
+    """'none' → None | 'auto' → smart niche pick | path → that file."""
+    m = str(music or "none").strip().lower()
+    if m in ("", "none", "off", "false", "no"):
+        return None
+    if m == "auto":
+        try:
+            from src.utils.media_manager import get_smart_music
+            picked = get_smart_music(niche=niche)
+            if picked and Path(picked).exists():
+                log(f"  🎵 music bed: {Path(picked).name}")
+                return str(picked)
+        except Exception as e:
+            log(f"  ⚠ smart music failed: {e}")
+        log("  ⚠ no music found for this niche — rendering without bed")
+        return None
+    p = Path(music)
+    if p.exists():
+        return str(p)
+    log(f"  ⚠ music file not found: {music}")
+    return None
+
+
 def render_selected_clips(analysis, selected=None, count=3,
                           crop_position="center", words_per_line=4,
                           mood="peaceful", niche="gospel", language="swahili",
+                          caption_style="karaoke", music="none",
                           progress_cb=None):
     """
     Render chosen moments from a finished analysis.
     selected: [{"start","end"}...] | [rank ints] | None → top `count`.
+    caption_style: 'karaoke' | 'static' | 'none'.
+    music: 'none' | 'auto' | file path (ducked under speech).
     Returns list of output descriptors.
     """
     def cb(pct, step):
@@ -1016,6 +1347,7 @@ def render_selected_clips(analysis, selected=None, count=3,
 
     source_path = Path(analysis["source_path"])
     words = analysis.get("words") or []
+    music_path = _resolve_music(music, niche)
     stamp = time.strftime("%Y%m%d_%H%M%S")
     outputs = []
     n = len(chosen)
@@ -1045,6 +1377,8 @@ def render_selected_clips(analysis, selected=None, count=3,
             crop_position=crop_position,
             words_per_line=words_per_line,
             mood=mood, language=language,
+            caption_style=caption_style,
+            music_path=music_path,
             encode_cb=encode_pct,
         )
 
@@ -1073,7 +1407,8 @@ def render_selected_clips(analysis, selected=None, count=3,
 def run_clipper_pipeline(source="auto", language="swahili", model="base",
                          min_dur=20.0, max_dur=50.0, count=3,
                          crop="center", niche="gospel", mood="peaceful",
-                         words_per_line=4):
+                         words_per_line=4, stt="local",
+                         captions="karaoke", music="none"):
     log("")
     log("=" * 62)
     log("  LONGFORM CLIPPER — analyze → score → render")
@@ -1084,7 +1419,7 @@ def run_clipper_pipeline(source="auto", language="swahili", model="base",
 
     analysis = analyze_video(
         source, model=model, language=language,
-        min_dur=min_dur, max_dur=max_dur, progress_cb=cb,
+        min_dur=min_dur, max_dur=max_dur, progress_cb=cb, stt=stt,
     )
     log("")
     log(f"  Source:  {analysis['source']}")
@@ -1098,7 +1433,8 @@ def run_clipper_pipeline(source="auto", language="swahili", model="base",
     outputs = render_selected_clips(
         analysis, selected=None, count=count,
         crop_position=crop, words_per_line=words_per_line,
-        mood=mood, niche=niche, language=language, progress_cb=cb,
+        mood=mood, niche=niche, language=language,
+        caption_style=captions, music=music, progress_cb=cb,
     )
 
     log("")
